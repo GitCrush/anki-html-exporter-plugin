@@ -1,0 +1,9 @@
+{
+  "name": "Anki HTML Exporter",
+  "mod": 0,
+  "author": "Deep Intervention",
+  "version": "1.0",
+  "description": "Export Cards with Media to HTML file, filter by deck and tag hierarchy",
+  "min_point_version": "25.02"
+}
+
