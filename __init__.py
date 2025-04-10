@@ -5,6 +5,17 @@ from .tag_input_widget import TagInputWidget
 from .exporter import export_to_html_gui
 import os
 import traceback
+from PyQt6.QtWidgets import QMessageBox
+
+def check_anki_connect_installed():
+    if "2055492159" not in mw.addonManager.allAddons():
+        QMessageBox.critical(
+            mw,
+            "AnkiConnect Missing",
+            "AnkiConnect is required for this add-on to work. Please install it from the AnkiWeb Add-ons menu."
+        )
+        return False
+    return True
 
 
 class ExportWorker(QThread):
@@ -44,6 +55,8 @@ def generate_folder_name(deck, tags):
 
 
 def show_export_dialog():
+    if not check_anki_connect_installed():
+        return  # Exit silently if missing
     dialog = QDialog(mw, Qt.WindowType.Window)
     dialog.setWindowTitle("Export to HTML")
     dialog.setMinimumWidth(500)
