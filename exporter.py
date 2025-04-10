@@ -3,6 +3,7 @@ import re
 import base64
 import imghdr
 import html
+import urllib.parse
 import requests
 from aqt import mw
 
@@ -27,9 +28,14 @@ def anki_request(action, params=None):
         return []
 
 def extract_media_filenames(html_content):
-    return re.findall(r'src="([^"]+)"', html_content)
+    return re.findall(r'src=["\']([^"\']+)["\']', html_content)
+
+def is_external_url(url):
+    return url.startswith("http://") or url.startswith("https://")
 
 def download_media_file(filename, media_dir):
+    if is_external_url(filename):
+        return None
     media_data = anki_request("retrieveMediaFile", {"filename": filename})
     if media_data:
         binary_data = base64.b64decode(media_data)
@@ -50,26 +56,20 @@ def build_query(deck_name, tags):
     if deck_name:
         parts.append(f'deck:"{deck_name}"')
     if tags:
-        # Remove wrapping quotes from each tag
         parts.extend([f'tag:{tag}' for tag in tags])
-    query = " ".join(parts)
-    return query
+    return " ".join(parts)
 
 def export_to_html_gui(deck_name=None, tags=None, note_ids=None, output_base=None, progress_callback=None, stop_flag=None):
     print("Starting export_to_html_gui()")
-
 
     if note_ids:
         print(f"Using {len(note_ids)} selected notes")
         query = f"nid:{' OR nid:'.join(map(str, note_ids))}"
         card_ids = anki_request("findCards", {"query": query})
-       
-        
     else:
         if not deck_name and not tags:
             raise ValueError("Please provide a deck or tags.")
         query = build_query(deck_name, tags)
-        
         card_ids = anki_request("findCards", {"query": query})
 
     if not card_ids:
@@ -88,79 +88,44 @@ def export_to_html_gui(deck_name=None, tags=None, note_ids=None, output_base=Non
     html_file = os.path.join(output_base, "index.html")
     css_file = os.path.join(css_folder, "styles.css")
 
-    # Write CSS
     with open(css_file, "w", encoding="utf-8") as f:
         f.write("""
-        body {
-            font-family: Arial, sans-serif;
-            background: #121212;
-            color: #ffffff;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 20px;
-        }
-        .card {
-            border: 1px solid #444;
-            padding: 20px;
-            margin: 10px;
-            border-radius: 8px;
-            background: #1e1e1e;
-            width: 60%;
-            text-align: center;
-            position: relative;
-        }
-        .card-id {
-            font-size: 12px;
-            color: #aaa;
-            text-decoration: none;
-            position: absolute;
-            top: 5px;
-            right: 10px;
-        }
-        .tags {
-            font-size: 12px;
-            color: #aaa;
-            margin-top: 10px;
-            border-top: 1px solid #444;
-            padding-top: 5px;
-        }
-        img {
-            max-width: 100%;
-            display: block;
-            margin: 10px auto;
-        }
-        .extra-info-button {
-            background-color: #333;
-            color: #fff;
-            border: none;
-            padding: 5px 10px;
-            cursor: pointer;
-            margin-top: 5px;
-            border-radius: 5px;
-            text-decoration: none;
-            display: inline-block;
-        }
-        .extra-info-button:hover {
-            background-color: #555;
-        }
+        body { font-family: Arial, sans-serif; background: #121212; color: #ffffff; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        .card { border: 1px solid #444; padding: 20px; margin: 10px; border-radius: 8px; background: #1e1e1e; width: 90%; max-width: 900px; text-align: center; position: relative; }
+        .card-id { font-size: 12px; color: #aaa; text-decoration: none; position: absolute; top: 5px; right: 10px; }
+        .tags { font-size: 12px; color: #aaa; margin-top: 10px; border-top: 1px solid #444; padding-top: 5px; }
+        img { max-width: 100%; height: auto; display: block; margin: 10px auto; }
+        .extra-info-button { background-color: #333; color: #fff; border: none; padding: 5px 10px; cursor: pointer; margin-top: 5px; border-radius: 5px; text-decoration: none; display: inline-block; }
+        .extra-info-button:hover { background-color: #555; }
         """)
 
-    # Write HTML
     with open(html_file, "w", encoding="utf-8") as out:
         out.write("<html><head><meta charset='utf-8'><title>Exported Cards</title>")
+        out.write("<meta name='viewport' content='width=device-width, initial-scale=1'>")
         out.write("<link rel='stylesheet' type='text/css' href='css/styles.css'>")
         out.write("<script>")
         out.write("""
-        function openExtraInfo(content, isImage) {
-            let newWindow = window.open("", "_blank", "width=600,height=400");
-            newWindow.document.write("<html><head><title>Extra Info</title></head><body>");
-            if (isImage) {
-                newWindow.document.write("<img src='" + content + "' style='max-width:100%;'>");
+        function openExtraInfo(content, isImage, isURL) {
+            let newWindow = window.open("", "_blank", "width=800,height=600");
+            newWindow.document.write(`
+                <html>
+                <head>
+                    <meta name='viewport' content='width=device-width, initial-scale=1'>
+                    <title>Extra Info</title>
+                    <style>
+                        body { background:#ffffff; color:#000; font-family: Arial, sans-serif; padding: 20px; margin: 0; }
+                        img, iframe { max-width: 100%; max-height: 90vh; height: auto; width: auto; display: block; margin: auto; }
+                    </style>
+                </head>
+                <body>`);
+            if (isURL) {
+                newWindow.document.write(`<iframe src='${content}'></iframe>`);
+            } else if (isImage) {
+                newWindow.document.write(`<img src='${content}'>`);
             } else {
-                newWindow.document.write("<p style='font-size:16px; white-space:pre-wrap;'>" + content + "</p>");
+                newWindow.document.write(decodeURIComponent(content));
             }
-            newWindow.document.write("</body></html>");
+            newWindow.document.write(`</body></html>`);
             newWindow.document.close();
         }
         """)
@@ -168,7 +133,6 @@ def export_to_html_gui(deck_name=None, tags=None, note_ids=None, output_base=Non
 
         for i, card in enumerate(cards):
             if stop_flag and stop_flag():
-                print("Export cancelled by user.")
                 return 0
 
             answer = card.get("answer", "")
@@ -180,23 +144,27 @@ def export_to_html_gui(deck_name=None, tags=None, note_ids=None, output_base=Non
                 local_path = download_media_file(media_file, media_folder)
                 if local_path:
                     answer = answer.replace(media_file, local_path)
+                elif is_external_url(media_file):
+                    button = f"<button class='extra-info-button' onclick=\"openExtraInfo('{media_file}', false, true)\">External Media</button>"
+                    answer += button
 
             out.write("<div class='card'>")
             out.write(f"<a href='#{card['cardId']}' class='card-id' id='{card['cardId']}'>Card ID: {card['cardId']}</a>")
-            out.write(f"<p>{answer}</p>")
+            out.write(f"<div>{answer}</div>")
 
             for field_name, content in fields.items():
                 val = content.get("value", "").strip()
                 if not val or val in answer or field_name.lower() in ["front", "question"]:
                     continue
-                if extract_media_filenames(val):
-                    for media_file in extract_media_filenames(val):
-                        media_path = download_media_file(media_file, media_folder)
-                        if media_path:
-                            out.write(f"<button class='extra-info-button' onclick=\"openExtraInfo('{media_path}', true)\">{html.escape(field_name)}</button>")
-                else:
-                    safe_val = html.escape(val).replace("{", "&#123;").replace("}", "&#125;")
-                    out.write(f"<button class='extra-info-button' onclick=\"openExtraInfo('{safe_val}', false)\">{html.escape(field_name)}</button>")
+                for media_file in extract_media_filenames(val):
+                    local_path = download_media_file(media_file, media_folder)
+                    if local_path:
+                        val = val.replace(media_file, local_path)
+                    elif is_external_url(media_file):
+                        val = val.replace(media_file, media_file)
+
+                val_encoded = urllib.parse.quote(val)
+                out.write(f"<button class='extra-info-button' onclick=\"openExtraInfo(this.dataset.content, false, false)\" data-content='{val_encoded}'>{html.escape(field_name)}</button>")
 
             if tags:
                 out.write(f"<p class='tags'>Tags: {', '.join(tags)}</p>")
