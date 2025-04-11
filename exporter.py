@@ -35,7 +35,31 @@ def is_external_url(url):
 
 def download_media_file(filename, media_dir):
     if is_external_url(filename):
+        try:
+            r = requests.get(filename, timeout=10)
+            r.raise_for_status()
+            ext = os.path.splitext(filename)[-1]
+            safe_name = re.sub(r'[^a-zA-Z0-9_.-]', '_', os.path.basename(filename))
+            local_path = os.path.join(media_dir, safe_name)
+            os.makedirs(media_dir, exist_ok=True)
+            with open(local_path, 'wb') as f:
+                f.write(r.content)
+            return f"media/{safe_name}"
+        except Exception as e:
+            print(f"Failed to download external file: {filename} → {e}")
         return None
+
+    media_data = anki_request("retrieveMediaFile", {"filename": filename})
+    if media_data:
+        binary_data = base64.b64decode(media_data)
+        image_format = imghdr.what(None, binary_data)
+        if image_format:
+            os.makedirs(media_dir, exist_ok=True)
+            path = os.path.join(media_dir, filename)
+            with open(path, "wb") as f:
+                f.write(binary_data)
+            return f"media/{filename}"
+    return None
     media_data = anki_request("retrieveMediaFile", {"filename": filename})
     if media_data:
         binary_data = base64.b64decode(media_data)
@@ -56,7 +80,7 @@ def build_query(deck_name, tags):
     if deck_name:
         parts.append(f'deck:"{deck_name}"')
     if tags:
-        parts.extend([f'tag:{tag}' for tag in tags])
+        parts.extend([f'tag:"{tag}"' for tag in tags])  
     return " ".join(parts)
 
 def export_to_html_gui(deck_name=None, tags=None, note_ids=None, output_base=None, progress_callback=None, stop_flag=None):
@@ -71,6 +95,7 @@ def export_to_html_gui(deck_name=None, tags=None, note_ids=None, output_base=Non
             raise ValueError("Please provide a deck or tags.")
         query = build_query(deck_name, tags)
         card_ids = anki_request("findCards", {"query": query})
+        print(f"Found {len(card_ids)} cards matching query: '{query}'")
 
     if not card_ids:
         print("No cards found.")
@@ -177,4 +202,3 @@ def export_to_html_gui(deck_name=None, tags=None, note_ids=None, output_base=Non
 
     print(f"Export complete: {html_file}")
     return total
-
