@@ -244,15 +244,6 @@ def show_export_dialog():
     dialog.show()
 
 
-def add_browser_context_menu(menu, browser):
-    selected_notes = browser.selected_notes()
-    if not selected_notes:
-        return
-    action = QAction("Export selected to HTML", browser)
-    action.triggered.connect(lambda: export_to_html_gui(note_ids=selected_notes))
-    menu.addAction(action)
-
-
 def add_menu_entry():
     action = QAction("Export to HTML (Deck/Tag)", mw)
     action.triggered.connect(show_export_dialog)
@@ -260,5 +251,4 @@ def add_menu_entry():
 
 
 add_menu_entry()
-browser_will_show_context_menu.append(add_browser_context_menu)
 
