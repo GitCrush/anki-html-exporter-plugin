@@ -59,7 +59,9 @@ def show_export_dialog():
         return  # Exit silently if missing
     dialog = QDialog(mw, Qt.WindowType.Window)
     dialog.setWindowTitle("Export to HTML")
-    dialog.setMinimumWidth(500)
+    dialog.resize(1300, 500)
+    dialog.setMinimumSize(1300, 500)  
+    dialog.setSizeGripEnabled(True) 
     layout = QVBoxLayout()
 
     # Deck selection
@@ -242,6 +244,15 @@ def show_export_dialog():
     export_button.clicked.connect(run_export)
     update_card_count()
     dialog.show()
+
+
+def add_browser_context_menu(menu, browser):
+    selected_notes = browser.selected_notes()
+    if not selected_notes:
+        return
+    action = QAction("Export selected to HTML", browser)
+    action.triggered.connect(lambda: export_to_html_gui(note_ids=selected_notes))
+    menu.addAction(action)
 
 
 def add_menu_entry():
