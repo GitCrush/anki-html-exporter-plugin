@@ -4,25 +4,36 @@ import base64
 import imghdr
 import html
 import urllib.parse
-import requests
+import urllib.request
+import json
 from aqt import mw
 
 ANKI_CONNECT_URL = "http://localhost:8765"
 
 def anki_request(action, params=None):
-    payload = {
+    payload = json.dumps({
         "action": action,
         "version": 6,
         "params": params or {}
-    }
+    }).encode('utf-8')
+
+    req = urllib.request.Request(
+        ANKI_CONNECT_URL,
+        data=payload,
+        headers={'Content-Type': 'application/json'}
+    )
+
     try:
-        response = requests.post(ANKI_CONNECT_URL, json=payload)
-        response.raise_for_status()
-        result = response.json()
-        if "error" in result and result["error"]:
-            print("AnkiConnect error:", result["error"])
-            return []
-        return result["result"]
+        with urllib.request.urlopen(req) as response:
+            if response.status != 200:
+                print(f"HTTP Error {response.status}")
+                return []
+            response_data = response.read().decode('utf-8')
+            result = json.loads(response_data)
+            if "error" in result and result["error"]:
+                print("AnkiConnect error:", result["error"])
+                return []
+            return result["result"]
     except Exception as e:
         print("Exception in anki_request:", e)
         return []
@@ -36,30 +47,21 @@ def is_external_url(url):
 def download_media_file(filename, media_dir):
     if is_external_url(filename):
         try:
-            r = requests.get(filename, timeout=10)
-            r.raise_for_status()
-            ext = os.path.splitext(filename)[-1]
-            safe_name = re.sub(r'[^a-zA-Z0-9_.-]', '_', os.path.basename(filename))
-            local_path = os.path.join(media_dir, safe_name)
-            os.makedirs(media_dir, exist_ok=True)
-            with open(local_path, 'wb') as f:
-                f.write(r.content)
-            return f"media/{safe_name}"
+            with urllib.request.urlopen(filename, timeout=10) as response:
+                if response.status != 200:
+                    print(f"HTTP Error {response.status} for URL {filename}")
+                    return None
+                data = response.read()
+                safe_name = re.sub(r'[^a-zA-Z0-9_.-]', '_', os.path.basename(filename))
+                local_path = os.path.join(media_dir, safe_name)
+                os.makedirs(media_dir, exist_ok=True)
+                with open(local_path, 'wb') as f:
+                    f.write(data)
+                return f"media/{safe_name}"
         except Exception as e:
             print(f"Failed to download external file: {filename} → {e}")
         return None
 
-    media_data = anki_request("retrieveMediaFile", {"filename": filename})
-    if media_data:
-        binary_data = base64.b64decode(media_data)
-        image_format = imghdr.what(None, binary_data)
-        if image_format:
-            os.makedirs(media_dir, exist_ok=True)
-            path = os.path.join(media_dir, filename)
-            with open(path, "wb") as f:
-                f.write(binary_data)
-            return f"media/{filename}"
-    return None
     media_data = anki_request("retrieveMediaFile", {"filename": filename})
     if media_data:
         binary_data = base64.b64decode(media_data)
