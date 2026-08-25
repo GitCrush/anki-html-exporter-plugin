@@ -1,0 +1,37 @@
+/* Tailwind source for the export's navigation panel.
+ *
+ * Only the panel is written in utilities; the rest of the export -- the control
+ * bar, the cards, the print layout -- is hand-written CSS in shell.css and stays
+ * that way. The two coexist because nothing here targets those elements.
+ *
+ * The generated file is ahe/web/tailwind.css and is committed, so building the
+ * add-on never needs Node. Regenerate it with:
+ *
+ *     python3 build_addon.py --tailwind
+ */
+
+/* No preflight. Tailwind's base reset would restyle the whole export -- every
+   button in the control bar, every heading inside a card frame -- and undo the
+   layout shell.css builds on. Importing theme and utilities separately leaves
+   it out. */
+@layer theme, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities) source(none);
+
+/* The panel's markup lives in exactly two places: the shell that builds its
+   rows and the writer that emits its skeleton. */
+@source "../ahe/web/shell.js";
+@source "../ahe/writer.py";
+
+/* The export's palette, so a utility resolves to the same colour the rest of
+   the page uses. These custom properties already flip in night mode -- the
+   `html.ahe-dark` block in shell.css redefines them -- which is why the panel
+   needs no `dark:` variants at all. */
+@theme {
+    --color-surface: var(--ahe-surface);
+    --color-surface-2: var(--ahe-surface-2);
+    --color-ink: var(--ahe-fg);
+    --color-muted: var(--ahe-fg-muted);
+    --color-line: var(--ahe-border);
+    --color-accent: var(--ahe-accent);
+}

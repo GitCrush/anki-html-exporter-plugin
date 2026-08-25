@@ -1,0 +1,11 @@
+{
+  "name": "anki-html-exporter-tailwind",
+  "private": true,
+  "description": "Build-time only: generates ahe/web/tailwind.css for the export's navigation panel. The add-on itself ships no JavaScript dependencies.",
+  "scripts": {
+    "build": "tailwindcss --input input.css --output ../ahe/web/tailwind.css --minify"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.3.3"
+  }
+}

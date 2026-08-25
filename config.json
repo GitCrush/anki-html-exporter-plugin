@@ -1,0 +1,24 @@
+{
+    "output_dir": "",
+    "order": "deck",
+    "single_file": false,
+    "embed_mathjax": true,
+    "download_remote_media": false,
+    "apply_gui_hooks": false,
+    "view_mode": "auto",
+    "interactive": true,
+    "study": false,
+    "show_meta": false,
+    "show_special": false,
+    "show_fields": false,
+    "dark": false,
+    "excluded_fields": [],
+    "excluded_special": [
+        "Deck",
+        "Subdeck",
+        "Note type",
+        "Card",
+        "Card ID"
+    ],
+    "last_search": ""
+}

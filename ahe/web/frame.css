@@ -1,0 +1,129 @@
+/* Injected into every card frame, after Anki's reviewer.css and before the
+   note type's own stylesheet, so a note type can still override anything. */
+
+html {
+    /* The parent sizes the frame to its content; a scrollbar would only ever
+       be a rounding artefact. */
+    overflow: hidden;
+}
+
+html::-webkit-scrollbar {
+    display: none;
+}
+
+body {
+    /* Anki's reviewer.css sets margin: 20px. Keep it, but let the parent's
+       card frame supply the outer padding on narrow screens. */
+    min-height: 0;
+}
+
+/* Anki caps media at 95vh, where vh is the reviewer window. In a frame that
+   is sized to its own content, vh would depend on the very height it is
+   supposed to constrain, so the shell passes the reader's viewport in as
+   --ahe-vh and we resolve against that instead. */
+/* A note type may lay a table out at nine hundred pixels, which on a phone is
+   nearly three screens. The frame carries scrolling="no", so that content was
+   cut off with no way to reach it -- in Anki's reviewer it scrolls. Scrolling
+   the element rather than the frame keeps that available without the frame
+   growing a bar of its own, and there is never anything to scroll vertically
+   in here: the frame is given exactly the height it reports. */
+#qa {
+    overflow-x: auto;
+}
+
+img {
+    max-height: var(--ahe-vh, 95vh);
+}
+
+#image-occlusion-container {
+    max-height: calc(var(--ahe-vh, 95vh) - 40px);
+}
+
+/* Media players replacing the reviewer's pycmd replay buttons. */
+.ahe-av {
+    display: block;
+    margin: 8px auto;
+    max-width: 100%;
+}
+
+.ahe-av-file {
+    display: inline-block;
+    margin: 4px;
+}
+
+/* Text-to-speech content, which cannot be played back offline. */
+.ahe-tts {
+    display: inline-block;
+    padding: 2px 8px;
+    border: 1px dashed currentColor;
+    border-radius: 6px;
+    opacity: 0.8;
+}
+
+.ahe-tts::before {
+    content: "🔊 ";
+}
+
+/* {{type:Field}} input box: present for layout fidelity, but inert. */
+.ahe-typeans {
+    background: transparent;
+    border: 1px solid var(--border, #c4c4c4);
+    color: inherit;
+    cursor: default;
+}
+
+.ahe-warning {
+    color: #dc2626;
+}
+
+/* Interactive front side
+   ------------------------------------------------------------------------ */
+
+/* A deletion the reader can lift. The note type owns the colour of .cloze, so
+   only the affordance is added here. */
+html.ahe-interactive [data-ahe-cloze] {
+    cursor: pointer;
+    border-bottom: 1px dashed currentColor;
+    border-radius: 2px;
+}
+
+html.ahe-interactive [data-ahe-cloze]:hover {
+    background: rgba(125, 125, 125, 0.15);
+}
+
+html.ahe-interactive [data-ahe-cloze][data-ahe-open] {
+    border-bottom-style: solid;
+}
+
+/* Image Occlusion Enhanced: the mask is an SVG image stacked over the
+   picture, so lifting it is a matter of hiding that layer. */
+html.ahe-interactive .ahe-io-maskable {
+    cursor: pointer;
+}
+
+/* Anki's own image occlusion, drawn here rather than by its reviewer bundle.
+   The container is position: relative through reviewer.css. */
+.ahe-io-svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 4;
+}
+
+.ahe-io-shape {
+    cursor: pointer;
+    transition: opacity 120ms ease;
+}
+
+/* A lifted shape keeps its place -- clicking again puts it back. */
+.ahe-io-shape.ahe-io-lifted,
+body.ahe-io-hidden .ahe-io-shape:not(.ahe-io-text),
+body.ahe-io-lift-all .ahe-io-shape:not(.ahe-io-text) {
+    opacity: 0;
+}
+
+.ahe-io-highlight {
+    cursor: default;
+}

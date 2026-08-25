@@ -1,0 +1,1275 @@
+/* Styling for the export shell: the control bar and the frame around each
+   card. Card content itself is styled inside its own frame by Anki's
+   reviewer.css plus the note type's stylesheet, and never by this file. */
+
+:root {
+    --ahe-bg: #f4f5f7;
+    --ahe-surface: #ffffff;
+    --ahe-surface-2: #eceef1;
+    --ahe-fg: #1c1e21;
+    --ahe-fg-muted: #6b7280;
+    --ahe-border: #d6d9de;
+    --ahe-border-subtle: #e8eaee;
+    --ahe-accent: #2563eb;
+    --ahe-accent-soft: rgba(37, 99, 235, 0.35);
+    /* A switch that is on is tinted rather than filled: several can be on at
+       once without any of them shouting. */
+    --ahe-accent-wash: rgba(37, 99, 235, 0.10);
+    --ahe-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.1);
+    --ahe-radius: 10px;
+    color-scheme: light;
+}
+
+html.ahe-dark {
+    --ahe-bg: #16181c;
+    --ahe-surface: #1f2227;
+    --ahe-surface-2: #262a30;
+    --ahe-fg: #e6e8eb;
+    --ahe-fg-muted: #9aa1ab;
+    --ahe-border: #343941;
+    --ahe-border-subtle: #2b2f36;
+    --ahe-accent: #60a5fa;
+    --ahe-accent-soft: rgba(96, 165, 250, 0.35);
+    --ahe-accent-wash: rgba(96, 165, 250, 0.16);
+    --ahe-shadow: none;
+    color-scheme: dark;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    background: var(--ahe-bg);
+    color: var(--ahe-fg);
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        "Helvetica Neue", Arial, sans-serif;
+}
+
+/* Control bar
+   ------------------------------------------------------------------------ */
+
+/* Two lines, and each knows what it is for: the head says where you are and
+   what you are looking for, the tool line what you see and what you do. The
+   tool line does not wrap, it scrolls, so the bar keeps the same shape at
+   every window width instead of rearranging itself into a different one. */
+.ahe-bar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: var(--ahe-surface);
+    border-bottom: 1px solid var(--ahe-border);
+    box-shadow: var(--ahe-shadow);
+}
+
+.ahe-bar-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+}
+
+.ahe-bar-head {
+    flex-wrap: wrap;
+    padding-bottom: 6px;
+}
+
+.ahe-bar-tools {
+    flex-wrap: nowrap;
+    padding-top: 0;
+    padding-bottom: 9px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+}
+
+.ahe-title {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+
+.ahe-count {
+    flex: 0 0 auto;
+    color: var(--ahe-fg-muted);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+}
+
+.ahe-spacer {
+    flex: 1 1 auto;
+}
+
+.ahe-sep {
+    flex: 0 0 auto;
+    align-self: stretch;
+    width: 1px;
+    margin: 2px 5px;
+    background: var(--ahe-border-subtle);
+}
+
+.ahe-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    flex: 0 0 auto;
+}
+
+/* Three weights, so the bar is read rather than deciphered. A switch that is
+   off is barely there until it is pointed at; one that is on is tinted; and
+   the side picker below is the single filled control, because it decides what
+   a card shows at all. Sixteen identical grey boxes said none of that. */
+.ahe-bar button {
+    flex: 0 0 auto;
+    font: inherit;
+    color: var(--ahe-fg-muted);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    padding: 5px 9px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.ahe-bar button:hover {
+    background: var(--ahe-surface-2);
+    color: var(--ahe-fg);
+}
+
+.ahe-bar button[aria-pressed="true"] {
+    background: var(--ahe-accent-wash);
+    border-color: var(--ahe-accent-soft);
+    color: var(--ahe-accent);
+}
+
+.ahe-bar .ahe-solid,
+.ahe-bar input[type="search"] {
+    font: inherit;
+    color: var(--ahe-fg);
+    background: var(--ahe-surface-2);
+    border: 1px solid var(--ahe-border);
+    border-radius: 8px;
+    padding: 5px 10px;
+}
+
+.ahe-bar .ahe-solid:hover {
+    background: var(--ahe-surface-2);
+    border-color: var(--ahe-accent);
+    color: var(--ahe-fg);
+}
+
+.ahe-bar input[type="search"] {
+    min-width: 170px;
+    flex: 0 1 240px;
+}
+
+/* A switch and the list it applies to, as one control rather than two buttons
+   that happened to stand next to each other. */
+.ahe-split {
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+}
+
+.ahe-split > button:first-child {
+    border-start-end-radius: 0;
+    border-end-end-radius: 0;
+    padding-right: 6px;
+}
+
+.ahe-bar .ahe-caret {
+    font-size: 10px;
+    padding: 5px 7px 5px 5px;
+    border-start-start-radius: 0;
+    border-end-start-radius: 0;
+    /* A seam, so the triangle reads as a control of its own rather than as
+       decoration on the switch beside it. It is the only way to the list
+       behind it, and a reader who does not see it concludes there is no
+       list. */
+    border-inline-start-color: var(--ahe-border);
+}
+
+/* Switch and list are one control, so they light up together. */
+.ahe-split > button[aria-pressed="true"] + .ahe-caret {
+    background: var(--ahe-accent-wash);
+    border-color: var(--ahe-accent-soft);
+    color: var(--ahe-accent);
+}
+
+/* Mode picker: the four options are mutually exclusive, so they read as one
+   control rather than four independent switches. */
+.ahe-segmented {
+    display: inline-flex;
+    flex: 0 0 auto;
+}
+
+.ahe-segmented button {
+    color: var(--ahe-fg);
+    background: var(--ahe-surface-2);
+    border: 1px solid var(--ahe-border);
+    border-radius: 0;
+    margin-inline-start: -1px;
+    padding: 5px 11px;
+}
+
+.ahe-segmented button:hover {
+    background: var(--ahe-surface-2);
+    border-color: var(--ahe-accent);
+}
+
+.ahe-segmented button:first-child {
+    border-start-start-radius: 8px;
+    border-end-start-radius: 8px;
+    margin-inline-start: 0;
+}
+
+.ahe-segmented button:last-child {
+    border-start-end-radius: 8px;
+    border-end-end-radius: 8px;
+}
+
+.ahe-segmented button[aria-pressed="true"] {
+    position: relative;
+    z-index: 1;
+    background: var(--ahe-accent);
+    border-color: var(--ahe-accent);
+    color: #fff;
+}
+
+/* Dropdown check lists (fields / special fields)
+   ------------------------------------------------------------------------ */
+
+.ahe-menu {
+    position: relative;
+}
+
+/* Fixed rather than absolute: the tool line is a scroll container, and a
+   panel positioned inside one would be cut off at its edge. The shell places
+   it under the control that opened it. */
+.ahe-menu-panel {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 30;
+    display: none;
+    min-width: 240px;
+    max-height: 60vh;
+    overflow-y: auto;
+    padding: 8px;
+    background: var(--ahe-surface);
+    border: 1px solid var(--ahe-border);
+    border-radius: var(--ahe-radius);
+    box-shadow: 0 8px 24px rgba(16, 24, 40, 0.18);
+}
+
+.ahe-menu.open .ahe-menu-panel {
+    display: block;
+}
+
+.ahe-menu-panel label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 6px;
+    border-radius: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.ahe-menu-panel label:hover {
+    background: var(--ahe-surface-2);
+}
+
+.ahe-menu-actions {
+    display: flex;
+    gap: 6px;
+    padding: 4px 6px 8px;
+    border-bottom: 1px solid var(--ahe-border);
+    margin-bottom: 6px;
+}
+
+.ahe-menu-actions button {
+    font: inherit;
+    flex: 1;
+    cursor: pointer;
+    background: var(--ahe-surface-2);
+    color: var(--ahe-fg);
+    border: 1px solid var(--ahe-border);
+    border-radius: 6px;
+    padding: 3px 6px;
+    white-space: nowrap;
+}
+
+.ahe-menu-actions button:hover {
+    border-color: var(--ahe-accent);
+}
+
+.ahe-menu-head {
+    padding: 2px 6px 6px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ahe-fg-muted);
+}
+
+/* Which deck is being read -- the live view only
+   ------------------------------------------------------------------------ */
+
+/* The box sits where the reader already looks for the answer to "where am I",
+   right beside the title, and it is the only control in the head line that
+   carries a name rather than a label. Filled like the search box rather than
+   tinted like a switch: it is not on or off, it is the place you are. */
+.ahe-deck[hidden] {
+    display: none;
+}
+
+.ahe-deck {
+    display: inline-flex;
+    flex: 0 1 auto;
+    min-width: 0;
+}
+
+.ahe-bar .ahe-deck-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    /* A deck may be called anything at all; the name gives way before the
+       controls beside it do. */
+    max-width: min(32vw, 320px);
+    color: var(--ahe-fg);
+    background: var(--ahe-surface-2);
+    border: 1px solid var(--ahe-border);
+    border-radius: 8px;
+    padding: 5px 8px 5px 10px;
+}
+
+.ahe-bar .ahe-deck-button:hover,
+.ahe-menu.open .ahe-deck-button {
+    background: var(--ahe-surface-2);
+    border-color: var(--ahe-accent);
+    color: var(--ahe-fg);
+}
+
+.ahe-deck-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+}
+
+.ahe-deck-caret {
+    flex: 0 0 auto;
+    font-size: 10px;
+    color: var(--ahe-fg-muted);
+}
+
+/* The find field stays put and the names scroll under it -- a field that
+   scrolls away is one you have to go back up to. So the panel itself does not
+   scroll, its list does. Three classes, like the rule it overrides, and after
+   it, or the panel would go back to being a block. */
+.ahe-menu.open .ahe-deck-panel {
+    display: flex;
+}
+
+.ahe-deck-panel {
+    flex-direction: column;
+    overflow: hidden;
+    min-width: 280px;
+    max-width: min(420px, 92vw);
+    padding: 6px;
+}
+
+.ahe-deck-find {
+    flex: 0 0 auto;
+    padding: 2px 2px 6px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid var(--ahe-border);
+}
+
+.ahe-deck-find input {
+    width: 100%;
+    font: inherit;
+    color: var(--ahe-fg);
+    background: var(--ahe-surface-2);
+    border: 1px solid var(--ahe-border);
+    border-radius: 6px;
+    padding: 5px 8px;
+}
+
+.ahe-deck-list {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    min-height: 0;
+}
+
+.ahe-bar .ahe-deck-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    width: 100%;
+    padding: 5px 8px;
+    border-radius: 6px;
+    color: var(--ahe-fg);
+    text-align: left;
+}
+
+.ahe-bar .ahe-deck-row:hover,
+.ahe-bar .ahe-deck-row.is-active {
+    background: var(--ahe-surface-2);
+    color: var(--ahe-fg);
+}
+
+/* Keyboard and mouse must not both look like the choice: the one the arrow
+   keys are on is outlined, the one that is chosen is tinted. */
+.ahe-bar .ahe-deck-row.is-active {
+    box-shadow: inset 0 0 0 1px var(--ahe-accent-soft);
+}
+
+.ahe-bar .ahe-deck-row[aria-selected="true"] {
+    background: var(--ahe-accent-wash);
+    color: var(--ahe-accent);
+    font-weight: 600;
+}
+
+/* Kept in the row even when it says nothing, so the names stay in one column
+   instead of stepping sideways as the choice moves. */
+.ahe-deck-tick {
+    flex: 0 0 auto;
+    width: 12px;
+    font-size: 11px;
+    visibility: hidden;
+}
+
+.ahe-deck-row[aria-selected="true"] .ahe-deck-tick {
+    visibility: visible;
+}
+
+.ahe-deck-row-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ahe-deck-more {
+    padding: 6px 8px;
+    color: var(--ahe-fg-muted);
+    font-size: 12px;
+}
+
+.ahe-print-panel {
+    min-width: 230px;
+}
+
+.ahe-print-sizes {
+    display: flex;
+    gap: 4px;
+    padding: 0 6px 10px;
+}
+
+.ahe-print-sizes button {
+    flex: 1 1 0;
+    color: var(--ahe-fg);
+    background: var(--ahe-surface-2);
+    border: 1px solid var(--ahe-border);
+    border-radius: 7px;
+    padding: 5px 8px;
+    text-align: center;
+}
+
+.ahe-print-sizes button[aria-pressed="true"] {
+    background: var(--ahe-accent);
+    border-color: var(--ahe-accent);
+    color: #fff;
+}
+
+/* Cards
+   ------------------------------------------------------------------------ */
+
+main {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 20px 16px 60vh;
+}
+
+/* Cards need to read as separate objects even when their content is a full
+   page of images, so they get a wide gutter, a visible outline and a header
+   band rather than a hairline border. */
+.ahe-card {
+    background: var(--ahe-surface);
+    border: 1px solid var(--ahe-border);
+    border-radius: var(--ahe-radius);
+    box-shadow: var(--ahe-shadow);
+    margin: 0 0 34px;
+    overflow: hidden;
+    scroll-margin-top: 72px;
+}
+
+.ahe-card[hidden] {
+    display: none;
+}
+
+.ahe-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    background: var(--ahe-surface-2);
+    border-bottom: 2px solid var(--ahe-border);
+    font-size: 12px;
+    color: var(--ahe-fg-muted);
+}
+
+/* Running number: the fastest way to see where one card ends. */
+.ahe-index {
+    flex: 0 0 auto;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: var(--ahe-accent);
+    color: #fff;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.ahe-index-total {
+    opacity: 0.7;
+    font-weight: 400;
+}
+
+.ahe-meta a {
+    color: inherit;
+    text-decoration: none;
+    font-variant-numeric: tabular-nums;
+}
+
+.ahe-meta a:hover {
+    text-decoration: underline;
+}
+
+.ahe-chip {
+    padding: 1px 7px;
+    border: 1px solid var(--ahe-border);
+    border-radius: 999px;
+    background: var(--ahe-surface);
+}
+
+.ahe-tag {
+    color: var(--ahe-accent);
+    /* A shared deck's tags run to sixty characters and have no spaces in them,
+       so on a phone one tag would decide the width of the whole page. */
+    overflow-wrap: anywhere;
+}
+
+.ahe-tags-summary,
+.ahe-tags-full {
+    display: contents;
+}
+
+.ahe-meta:not(.tags-open) .ahe-tags-full,
+.ahe-meta.tags-open .ahe-tags-summary {
+    display: none;
+}
+
+.ahe-tags-toggle {
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+}
+
+.ahe-flag-1 { color: #ef4444; }
+.ahe-flag-2 { color: #fb923c; }
+.ahe-flag-3 { color: #4ade80; }
+.ahe-flag-4 { color: #3b82f6; }
+.ahe-flag-5 { color: #e879f9; }
+.ahe-flag-6 { color: #2dd4bf; }
+.ahe-flag-7 { color: #a855f7; }
+
+.ahe-card-toggles {
+    display: flex;
+    gap: 4px;
+    margin-left: auto;
+}
+
+.ahe-card-toggles button {
+    font: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    padding: 1px 8px;
+    color: inherit;
+    background: var(--ahe-surface);
+    border: 1px solid var(--ahe-border);
+    border-radius: 999px;
+}
+
+.ahe-card-toggles button[aria-pressed="true"] {
+    background: var(--ahe-accent);
+    border-color: var(--ahe-accent);
+    color: #fff;
+}
+
+/* Card sides
+   ------------------------------------------------------------------------ */
+
+.ahe-side {
+    position: relative;
+}
+
+/* A real strip instead of a floating label: front and back are otherwise
+   indistinguishable when both are shown. */
+.ahe-side-head,
+.ahe-fields-head {
+    padding: 3px 12px;
+    background: var(--ahe-surface-2);
+    border-top: 1px solid var(--ahe-border);
+    border-bottom: 1px solid var(--ahe-border);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ahe-fg-muted);
+}
+
+.ahe-side iframe {
+    display: block;
+    width: 100%;
+    height: 60px;
+    border: 0;
+    background: transparent;
+    transition: height 80ms linear;
+}
+
+/* While a print run is being prepared the frames are relaid out at the width
+   they will be printed from, so that they reflow once -- on screen, where they
+   can still report their new heights -- instead of during printing. */
+html.print-prep .ahe-side iframe {
+    width: var(--ahe-prep-w, 100%);
+    transition: none;
+}
+
+/* Navigation panel
+   ------------------------------------------------------------------------ */
+
+/* The panel comes in from the edge it is anchored to rather than appearing.
+   Its layout is Tailwind's; only the movement is here.
+
+   Visibility is switched without a transition of its own -- at the start when
+   opening, at the end when closing, which is what the delay on the closed rule
+   does. A closed panel is therefore out of the tab order and out of the
+   accessibility tree, and still on screen for as long as it takes to slide
+   away. */
+.ahe-nav {
+    visibility: hidden;
+    transform: translateX(-100%);
+    transition: transform 220ms cubic-bezier(0.22, 0.61, 0.36, 1),
+        visibility 0s linear 220ms;
+}
+
+.ahe-nav-backdrop {
+    visibility: hidden;
+    opacity: 0;
+    transition: opacity 220ms ease, visibility 0s linear 220ms;
+}
+
+html.ahe-nav-open .ahe-nav {
+    visibility: visible;
+    transform: translateX(0);
+    transition: transform 220ms cubic-bezier(0.22, 0.61, 0.36, 1),
+        visibility 0s;
+}
+
+html.ahe-nav-open .ahe-nav-backdrop {
+    visibility: visible;
+    opacity: 1;
+    transition: opacity 220ms ease, visibility 0s;
+}
+
+/* Someone who has asked their system for less movement gets the panel without
+   the slide -- but still with the visibility switch, so it does not linger. */
+@media (prefers-reduced-motion: reduce) {
+    .ahe-nav,
+    .ahe-nav-backdrop,
+    html.ahe-nav-open .ahe-nav,
+    html.ahe-nav-open .ahe-nav-backdrop {
+        transition-duration: 0s, 0s;
+    }
+}
+
+/* A card that was taken down again leaves one of these behind, carrying the
+   height its frame had -- so releasing a card the reader has scrolled past
+   moves nothing below it. */
+.ahe-placeholder {
+    box-sizing: border-box;
+    padding: 24px;
+    text-align: center;
+    color: var(--ahe-fg-muted);
+}
+
+/* Metadata blocks
+   ------------------------------------------------------------------------ */
+
+/* Details: one wrapping strip of key/value chips. As a two-column table this
+   grew taller than the card itself. */
+.ahe-special {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px 14px;
+    padding: 7px 12px;
+    border-top: 1px solid var(--ahe-border);
+    background: var(--ahe-surface);
+    font-size: 11.5px;
+}
+
+.ahe-special-row {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 5px;
+    white-space: nowrap;
+}
+
+.ahe-special-key {
+    color: var(--ahe-fg-muted);
+}
+
+.ahe-special-key::after {
+    content: ":";
+}
+
+.ahe-special-value {
+    font-variant-numeric: tabular-nums;
+}
+
+/* Fields
+   ------------------------------------------------------------------------ */
+
+.ahe-fields {
+    padding: 0 0 4px;
+}
+
+.ahe-field {
+    border-bottom: 1px solid var(--ahe-border-subtle, var(--ahe-border));
+}
+
+.ahe-field:last-child {
+    border-bottom: 0;
+}
+
+.ahe-field > summary {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 5px 12px;
+    cursor: pointer;
+    list-style: none;
+}
+
+.ahe-field > summary::-webkit-details-marker {
+    display: none;
+}
+
+.ahe-field > summary::before {
+    content: "▸";
+    flex: 0 0 auto;
+    color: var(--ahe-fg-muted);
+    font-size: 10px;
+    transform: translateY(-1px);
+}
+
+.ahe-field[open] > summary::before {
+    content: "▾";
+}
+
+.ahe-field > summary:hover {
+    background: var(--ahe-surface-2);
+}
+
+.ahe-field-name {
+    flex: 0 0 auto;
+    min-width: 90px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ahe-fg-muted);
+}
+
+.ahe-field-peek {
+    flex: 1 1 auto;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    color: var(--ahe-fg);
+    opacity: 0.75;
+}
+
+.ahe-field[open] .ahe-field-peek {
+    visibility: hidden;
+}
+
+.ahe-field-value {
+    padding: 2px 12px 12px;
+    overflow-wrap: anywhere;
+    line-height: 1.55;
+}
+
+.ahe-field-value > :first-child {
+    margin-top: 0;
+}
+
+.ahe-field-value ul,
+.ahe-field-value ol {
+    margin: 0.4em 0;
+    padding-inline-start: 1.4em;
+}
+
+.ahe-field-value table {
+    border-collapse: collapse;
+    max-width: 100%;
+}
+
+.ahe-field-value td,
+.ahe-field-value th {
+    border: 1px solid var(--ahe-border);
+    padding: 2px 6px;
+}
+
+.ahe-field-value pre,
+.ahe-field-value code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.92em;
+}
+
+.ahe-field-value pre {
+    overflow-x: auto;
+    padding: 8px;
+    background: var(--ahe-surface-2);
+    border-radius: 6px;
+}
+
+/* Field images are previews, not the card: cap them so one screenshot does not
+   push the next card a screen and a half away. Click to see full size. */
+.ahe-field-value img {
+    max-width: 100%;
+    max-height: 260px;
+    width: auto;
+    height: auto;
+    cursor: zoom-in;
+    border: 1px solid var(--ahe-border);
+    border-radius: 4px;
+}
+
+.ahe-field-value img.ahe-zoom {
+    max-height: none;
+    cursor: zoom-out;
+}
+
+.ahe-field-value audio,
+.ahe-field-value video {
+    display: block;
+    max-width: 100%;
+    margin: 6px 0;
+}
+
+/* Visibility, driven by the control bar
+   ------------------------------------------------------------------------ */
+
+/* Which sides are shown depends on the view mode *and* on whether this card's
+   answer already repeats its question, so the script decides per card and sets
+   [hidden]; the blocks below are plain global switches. */
+.ahe-side[hidden] {
+    display: none;
+}
+
+html:not(.show-special) .ahe-special,
+html:not(.show-fields) .ahe-fields {
+    display: none;
+}
+
+/* With the info bar off, the header keeps only the running number and the
+   per-card switches -- enough to tell cards apart and to open anything. */
+html:not(.show-meta) .ahe-meta > :not(.ahe-index):not(.ahe-card-toggles) {
+    display: none;
+}
+
+/* Per-card overrides beat the global switches. */
+.ahe-card.f-on .ahe-fields,
+.ahe-card.s-on .ahe-special {
+    display: block;
+}
+
+.ahe-card.f-off .ahe-fields,
+.ahe-card.s-off .ahe-special {
+    display: none;
+}
+
+/* Only needed on paper, where these blocks can end up in a different column
+   than the card header they belong to. */
+.ahe-block-ref {
+    display: none;
+}
+
+.ahe-empty {
+    padding: 48px 16px;
+    text-align: center;
+    color: var(--ahe-fg-muted);
+}
+
+/* Print
+   ------------------------------------------------------------------------ */
+
+/* Study mode
+   ------------------------------------------------------------------------ */
+
+/* The bar that stands in for the answer while it is still covered. It only
+   exists in study mode, and only until the card has been answered. */
+.ahe-reveal {
+    display: none;
+    justify-content: center;
+    padding: 14px;
+    border-top: 1px dashed var(--ahe-border);
+}
+
+html.ahe-study .ahe-card:not(.ahe-revealed) .ahe-reveal {
+    display: flex;
+}
+
+.ahe-reveal button {
+    padding: 7px 18px;
+    border: 1px solid var(--ahe-accent);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--ahe-accent);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.ahe-reveal button:hover {
+    background: var(--ahe-accent);
+    color: var(--ahe-surface);
+}
+
+/* The card the keyboard is pointed at. */
+.ahe-card.ahe-cursor {
+    border-color: var(--ahe-accent);
+    box-shadow: 0 0 0 2px var(--ahe-accent-soft), var(--ahe-shadow);
+}
+
+/* The page's own address, for handing to a phone
+   ------------------------------------------------------------------------ */
+
+.ahe-qr {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(0, 0, 0, 0.5);
+}
+
+.ahe-qr-card {
+    max-width: min(420px, 92vw);
+    padding: 20px;
+    border-radius: var(--ahe-radius);
+    background: var(--ahe-surface);
+    color: var(--ahe-fg);
+    box-shadow: 0 18px 48px rgba(16, 24, 40, 0.35);
+    text-align: center;
+}
+
+.ahe-qr-card p {
+    margin: 0;
+}
+
+/* On white whatever the page is set to: a code a camera has to work out from
+   an inverted image is a code that does not get scanned. */
+.ahe-qr-card svg {
+    display: block;
+    width: min(300px, 68vw);
+    height: auto;
+    margin: 0 auto 14px;
+    border-radius: 6px;
+    background: #fff;
+}
+
+.ahe-qr-url {
+    font-size: 12px;
+    color: var(--ahe-fg-muted);
+    overflow-wrap: anywhere;
+}
+
+/* Phones and narrow windows
+   ------------------------------------------------------------------------ */
+
+/* The live view is meant to be read on a second device, so this is not a
+   courtesy: it is the size the page is actually used at. */
+@media (max-width: 720px) {
+    .ahe-bar-line {
+        gap: 6px;
+        padding: 7px 10px;
+    }
+
+    .ahe-bar-head {
+        padding-bottom: 5px;
+    }
+
+    .ahe-bar-tools {
+        padding-bottom: 8px;
+    }
+
+    /* The title goes rather than the search box: on a phone the bar is sticky,
+       and a third line of it costs a fifth of the screen for the whole of the
+       reading. The document's own title is in the tab either way. */
+    .ahe-bar-head .ahe-title {
+        display: none;
+    }
+
+    /* One line that shrinks, rather than one that wraps. Wrapping puts a
+       third line into a sticky bar -- a fifth of a phone screen, for the whole
+       of the reading -- and with the deck box in it the head line no longer
+       fits at 390 px. Everything in here can give way instead: the deck name
+       ellipsises, the search box shrinks, and the two buttons keep their
+       size. */
+    .ahe-bar-head {
+        flex-wrap: nowrap;
+    }
+
+    /* Nothing to push apart on one shrinking line. */
+    .ahe-bar-head .ahe-spacer {
+        display: none;
+    }
+
+    .ahe-bar-head input[type="search"] {
+        flex: 1 1 90px;
+        min-width: 70px;
+    }
+
+    /* The title is gone at this width, so the deck may take the room it left
+       -- as much as it can get without leaving the search box too narrow to
+       be a field. */
+    .ahe-bar .ahe-deck-button {
+        max-width: 45vw;
+    }
+
+    /* Comfortably hittable with a thumb without making the bar taller than it
+       has to be. */
+    .ahe-bar button,
+    .ahe-bar .ahe-solid,
+    .ahe-bar input[type="search"] {
+        min-height: 34px;
+    }
+
+    /* Safari on iOS zooms the whole page when a field smaller than this is
+       tapped, and never zooms back out by itself. */
+    .ahe-bar input[type="search"] {
+        font-size: 16px;
+    }
+
+    .ahe-menu-panel {
+        max-height: 55vh;
+    }
+
+    main {
+        padding: 12px 8px 60vh;
+    }
+
+    .ahe-card {
+        margin-bottom: 20px;
+        scroll-margin-top: 108px;
+    }
+
+    .ahe-meta {
+        padding: 7px 9px;
+    }
+
+    .ahe-side-head,
+    .ahe-fields-head {
+        padding-inline: 9px;
+    }
+
+    .ahe-card-toggles button {
+        padding: 3px 9px;
+    }
+}
+
+/* Anything narrower than a phone in portrait is the panel's territory, not
+   the bar's: at that width the title is the only thing worth the room. */
+@media (max-width: 420px) {
+    .ahe-count {
+        display: none;
+    }
+}
+
+@media print {
+    /* An unanswered card prints as a question, but the button that would
+       answer it is meaningless on paper. */
+    .ahe-reveal {
+        display: none !important;
+    }
+
+    .ahe-card.ahe-cursor {
+        box-shadow: none;
+    }
+
+    .ahe-bar,
+    .ahe-card-toggles,
+    .ahe-placeholder,
+    .ahe-qr {
+        display: none !important;
+    }
+
+    /* Tags print exactly as the screen shows them -- expanding a note's tags
+       before printing is a deliberate choice, and the count chip stays so the
+       page never hides that there are more. */
+    .ahe-tags-toggle {
+        border: 0;
+        padding: 0 0 0 4px;
+        background: none;
+        color: #000;
+        font-style: italic;
+    }
+
+    body {
+        background: #fff;
+        color: #000;
+    }
+
+    main {
+        max-width: none;
+        padding: 0;
+    }
+
+    /* On paper the shadow and the tinted bands are gone, so the outline and the
+       running number have to carry the separation on their own.
+       A card whose sides are several pages tall cannot avoid a break, and
+       forcing it only produces empty pages -- so let it fragment, and clone the
+       border onto every fragment so each page still shows one framed card. */
+    .ahe-card {
+        box-decoration-break: clone;
+        -webkit-box-decoration-break: clone;
+        box-shadow: none;
+        border: 1pt solid #000;
+        border-radius: 4pt;
+        margin: 0 0 7pt;
+    }
+
+    .ahe-meta {
+        background: #fff;
+        border-bottom: 1pt solid #000;
+        color: #000;
+        /* never let a header sit alone at the foot of a page */
+        break-after: avoid;
+        page-break-after: avoid;
+    }
+
+    /* Short sides stay whole; ones taller than a page still have to break. */
+    .ahe-side {
+        break-inside: avoid;
+    }
+
+    .ahe-special,
+    .ahe-fields {
+        break-inside: avoid;
+    }
+
+    .ahe-index {
+        background: #000;
+        color: #fff;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .ahe-side-head,
+    .ahe-fields-head {
+        background: #fff;
+        border-top: 0.75pt dashed #000;
+        border-bottom: 0.75pt dashed #000;
+        color: #000;
+        break-after: avoid;
+        page-break-after: avoid;
+    }
+
+    .ahe-side:first-of-type .ahe-side-head {
+        border-top: 0;
+    }
+
+    /* Cards flow into columns, so a card that only fills half a page no longer
+       leaves the other half empty. */
+    main {
+        column-count: var(--ahe-print-cols, 1);
+        column-gap: 9pt;
+    }
+
+    .ahe-card {
+        break-inside: avoid;
+    }
+
+    /* The frames were relaid out at --ahe-prep-w before the dialog opened, so
+       the card is already shaped for a narrow column; the transform only does
+       the final, mild shrink. The slot carries the height that leaves. */
+    .ahe-slot {
+        height: var(--ahe-print-height, auto);
+        overflow: hidden;
+    }
+
+    .ahe-side iframe {
+        transition: none;
+        transform: scale(var(--ahe-print-scale, 1));
+        transform-origin: top left;
+    }
+
+    .ahe-special {
+        border-top: 0.75pt solid #000;
+    }
+
+    /* No chevrons on paper -- nothing to click. */
+    .ahe-field > summary::before {
+        content: "";
+    }
+
+    /* Reference material set smaller than the card, and never split in two. */
+    .ahe-meta,
+    .ahe-special,
+    .ahe-fields {
+        font-size: 8pt;
+    }
+
+    .ahe-field {
+        break-inside: avoid;
+    }
+
+    /* A card with its fields open is taller than a column, so it fragments;
+       say which card the fragment belongs to. */
+    .ahe-block-ref {
+        display: inline;
+        margin-inline-start: 8pt;
+        font-weight: 400;
+        letter-spacing: 0;
+        text-transform: none;
+        opacity: 0.65;
+    }
+
+    .ahe-field > summary {
+        padding: 2pt 6pt 0;
+    }
+
+    .ahe-field-value {
+        padding: 0 6pt 4pt;
+    }
+
+    .ahe-field-value img {
+        max-height: 140pt;
+        cursor: auto;
+    }
+
+}
