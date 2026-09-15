@@ -65,6 +65,10 @@
     /* Served by the add-on out of the running collection, rather than written
        to disk with its cards baked in. */
     var live = !!(data.meta && data.meta.live);
+    /* The narrator's page: the bar, the panel and the search are this
+       script's; what the scope holds is played by the narrator's own script,
+       which is told through window.AHE_NARRATOR. */
+    var narrator = !!(data.meta && data.meta.narrator);
 
     var state = loadState();
 
@@ -326,6 +330,11 @@
             /* A key pressed with the pointer over a card is caught by that
                card's frame, which has no idea what a card is. */
             studyKey(payload.key);
+        } else if (payload.type === "swipe") {
+            var swiped = frames[payload.id];
+            if (swiped) {
+                frameSwipe(swiped, payload);
+            }
         }
     });
 
@@ -1264,10 +1273,8 @@
     var countLabel = control("count");
 
     function updateCount(visible) {
-        var text =
-            visible === articles.length
-                ? articles.length + " cards"
-                : visible + " / " + articles.length + " cards";
+        var total = articles.length - putAway.length;
+        var text = visible === total ? total + " cards" : visible + " / " + total + " cards";
         if (countLabel) {
             countLabel.textContent = text;
         }
@@ -1285,6 +1292,7 @@
             var card = cardsById[article.getAttribute("data-cid")];
             var haystack = card ? card.search : "";
             var match =
+                !article.hasAttribute("data-dismissed") &&
                 facetMatch(card) &&
                 terms.every(function (term) {
                     return haystack.indexOf(term) !== -1;
@@ -1793,6 +1801,28 @@
         entry.twist.title = open ? "Fold away" : "Show what is below";
     }
 
+    /* A tick six levels down is not a tick anyone can see while the tree is
+       folded, and in the live view a parent does not show it either -- its
+       row stands for its own name alone, since deck:Parent covers the
+       subdecks. So the branches above every ticked node are opened, as far
+       down as the ticks go. Branches fill as they open, which appends to
+       navNodes; the walk goes by index so it takes those rows in too. */
+    function revealTicked() {
+        for (var i = 0; i < navNodes.length; i++) {
+            var entry = navNodes[i];
+            if (!entry.children) {
+                continue;
+            }
+            var below = entry.node.name + "::";
+            var ticked = (state.filters[entry.section.key] || []).some(function (name) {
+                return String(name).indexOf(below) === 0;
+            });
+            if (ticked) {
+                expandNode(entry, true);
+            }
+        }
+    }
+
     function expandAll(open) {
         if (!open) {
             navNodes.forEach(function (entry) {
@@ -1866,6 +1896,7 @@
                 }
             }
         });
+        revealTicked();
         syncNav();
     }
 
@@ -1885,10 +1916,6 @@
         if (button) {
             button.setAttribute("aria-pressed", active ? "true" : "false");
         }
-        /* The bar's deck box writes the same state this panel does, so it is
-           brought along here rather than by whoever changed it -- otherwise
-           the two would disagree the first time somebody used the other one. */
-        deckSync();
     }
 
     function applyFilters() {
@@ -2098,6 +2125,304 @@
         }, 1200);
     }
 
+    /* --- swiping a card away ----------------------------------------------- */
+
+    /* On a phone a card that has been read is swiped off the page, left or
+     * right, the way a message is: it slides out, the cards below close the
+     * gap, and in the live view the next ones come up from the server. This is
+     * for the session only -- nothing is written back to Anki and a reload
+     * brings every card back -- so the one thing it needs beyond the gesture
+     * is a way to take an accidental swipe back, which the short notice at the
+     * bottom offers.
+     *
+     * Most of a card is a frame, and a touch inside it never reaches this
+     * document; the frame recognises the swipe itself and reports it here.
+     * The header and the toggles are ours, so the same recognition runs here
+     * for them. Both feed the one gesture below. */
+
+    var SWIPE_LOCK = 12; /* px of sideways travel before a swipe is one */
+    var SWIPE_PART = 0.35; /* of the card's width, past which it goes */
+    var SWIPE_FLING = 0.6; /* px/ms: a quick flick needs less distance */
+    var SWIPE_OUT = 180; /* ms for the slide out, and again for the gap */
+    var UNDO_FOR = 5000;
+
+    var swipe = null;
+    var putAway = []; /* what went, newest last, for undo */
+
+    function swipeBegin(article) {
+        if (swipe || !article || article.hidden || article.classList.contains("ahe-gone")) {
+            return;
+        }
+        swipe = {
+            article: article,
+            width: article.offsetWidth || 1,
+            dx: 0,
+            at: performance.now(),
+            speed: 0
+        };
+        article.classList.add("ahe-swiping");
+    }
+
+    function swipeMove(dx) {
+        if (!swipe) {
+            return;
+        }
+        var now = performance.now();
+        var elapsed = now - swipe.at;
+        if (elapsed > 0) {
+            swipe.speed = (dx - swipe.dx) / elapsed;
+        }
+        swipe.at = now;
+        swipe.dx = dx;
+        swipe.article.style.transform = "translateX(" + dx + "px)";
+        swipe.article.style.opacity = String(Math.max(0.25, 1 - Math.abs(dx) / swipe.width));
+    }
+
+    function swipeEnd(dx, cancelled) {
+        if (!swipe) {
+            return;
+        }
+        var gesture = swipe;
+        if (typeof dx === "number") {
+            swipeMove(dx);
+        }
+        swipe = null;
+        gesture.article.classList.remove("ahe-swiping");
+        var far = Math.abs(gesture.dx) > gesture.width * SWIPE_PART;
+        var flung =
+            Math.abs(gesture.speed) > SWIPE_FLING &&
+            Math.abs(gesture.dx) > SWIPE_LOCK * 2 &&
+            gesture.speed * gesture.dx > 0;
+        if (!cancelled && (far || flung)) {
+            dismissCard(gesture.article, gesture.dx < 0 ? -1 : 1, gesture.width);
+        } else {
+            settle(gesture.article);
+        }
+    }
+
+    function settle(article) {
+        article.classList.add("ahe-settling");
+        article.style.transform = "";
+        article.style.opacity = "";
+        setTimeout(function () {
+            article.classList.remove("ahe-settling");
+        }, SWIPE_OUT);
+    }
+
+    function dismissCard(article, direction, width) {
+        var height = article.getBoundingClientRect().height;
+        article.classList.add("ahe-gone");
+        article.style.height = height + "px";
+        article.style.transform = "translateX(" + direction * (width + 48) + "px)";
+        article.style.opacity = "0";
+        setTimeout(function () {
+            /* Out of sight; now the cards below close up over the space. */
+            article.style.height = "0px";
+            article.style.marginBottom = "0px";
+            setTimeout(function () {
+                takeOut(article);
+            }, SWIPE_OUT);
+        }, SWIPE_OUT);
+    }
+
+    function takeOut(article) {
+        article.classList.remove("ahe-gone");
+        article.style.transform = "";
+        article.style.opacity = "";
+        article.style.height = "";
+        article.style.marginBottom = "";
+        unmountArticle(article, false);
+        if (articles[cursor] === article) {
+            cursor = -1;
+        }
+        var index = articles.indexOf(article);
+        if (live) {
+            /* The page holds a window onto the scope, and the server counts
+               in scope positions, so a card leaving the page changes nothing
+               about what is asked for next. */
+            untrack(article);
+            articles.splice(index, 1);
+            article.parentNode.removeChild(article);
+            liveState.gone++;
+            putAway.push({ article: article, index: index });
+            liveCount();
+            mountVisible();
+            liveScroll();
+        } else {
+            article.setAttribute("data-dismissed", "");
+            putAway.push({ article: article, index: index });
+            runSearch();
+        }
+        offerUndo();
+    }
+
+    function takeBack() {
+        var last = putAway.pop();
+        if (!last) {
+            return;
+        }
+        var article = last.article;
+        if (live) {
+            var index = Math.min(last.index, articles.length);
+            var before = index < articles.length ? articles[index] : liveEmpty;
+            liveMain.insertBefore(article, before);
+            articles.splice(index, 0, article);
+            track(article);
+            liveState.gone--;
+            liveCount();
+            mountVisible();
+        } else {
+            article.removeAttribute("data-dismissed");
+            runSearch();
+        }
+        article.scrollIntoView({ block: "nearest" });
+        if (putAway.length) {
+            offerUndo();
+        } else {
+            hideUndo();
+        }
+    }
+
+    var undoBar = null;
+    var undoTimer = null;
+
+    function offerUndo() {
+        if (!undoBar) {
+            undoBar = document.createElement("div");
+            undoBar.className = "ahe-undo";
+            undoBar.setAttribute("role", "status");
+            var text = document.createElement("span");
+            text.className = "ahe-undo-text";
+            undoBar.appendChild(text);
+            var button = document.createElement("button");
+            button.type = "button";
+            button.setAttribute("data-control", "undo");
+            button.textContent = "Undo";
+            button.addEventListener("click", takeBack);
+            undoBar.appendChild(button);
+            document.body.appendChild(undoBar);
+        }
+        undoBar.querySelector(".ahe-undo-text").textContent =
+            putAway.length === 1 ? "Card swiped away" : putAway.length + " cards swiped away";
+        undoBar.hidden = false;
+        clearTimeout(undoTimer);
+        undoTimer = setTimeout(hideUndo, UNDO_FOR);
+    }
+
+    function hideUndo() {
+        clearTimeout(undoTimer);
+        if (undoBar) {
+            undoBar.hidden = true;
+        }
+    }
+
+    function forgetPutAway() {
+        putAway = [];
+        hideUndo();
+    }
+
+    /* The frame's report of a finger on the card side. */
+    function frameSwipe(frame, payload) {
+        var article = frame.closest(".ahe-card");
+        if (payload.phase === "move") {
+            if (!swipe) {
+                swipeBegin(article);
+            }
+            if (swipe && swipe.article === article) {
+                swipeMove(payload.dx);
+            }
+        } else if (swipe && swipe.article === article) {
+            swipeEnd(payload.dx, payload.phase === "cancel");
+        }
+    }
+
+    /* The same recognition for a finger on the card's own chrome -- header,
+       side strip, toggles -- which is this document's to hear. */
+    var chromeTouch = null;
+
+    function scrollsSideways(target, dx) {
+        var node = target;
+        while (node && node !== document.documentElement) {
+            if (node.nodeType === 1 && node.scrollWidth > node.clientWidth + 1) {
+                var overflow = getComputedStyle(node).overflowX;
+                if (overflow === "auto" || overflow === "scroll") {
+                    if (dx < 0 && node.scrollLeft + node.clientWidth < node.scrollWidth - 1) {
+                        return true;
+                    }
+                    if (dx > 0 && node.scrollLeft > 0) {
+                        return true;
+                    }
+                }
+            }
+            node = node.parentNode;
+        }
+        return false;
+    }
+
+    document.addEventListener(
+        "touchstart",
+        function (event) {
+            var article = event.target.closest ? event.target.closest(".ahe-card") : null;
+            if (!article || event.touches.length !== 1) {
+                chromeTouch = null;
+                return;
+            }
+            var point = event.touches[0];
+            chromeTouch = {
+                article: article,
+                target: event.target,
+                x: point.clientX,
+                y: point.clientY,
+                swiping: false,
+                dead: false
+            };
+        },
+        { passive: true }
+    );
+
+    document.addEventListener(
+        "touchmove",
+        function (event) {
+            if (!chromeTouch || chromeTouch.dead || event.touches.length !== 1) {
+                return;
+            }
+            var point = event.touches[0];
+            var dx = point.clientX - chromeTouch.x;
+            var dy = point.clientY - chromeTouch.y;
+            if (!chromeTouch.swiping) {
+                if (Math.abs(dy) >= SWIPE_LOCK && Math.abs(dy) >= Math.abs(dx)) {
+                    chromeTouch.dead = true;
+                    return;
+                }
+                if (Math.abs(dx) < SWIPE_LOCK || Math.abs(dx) < Math.abs(dy) * 1.5) {
+                    return;
+                }
+                if (scrollsSideways(chromeTouch.target, dx)) {
+                    chromeTouch.dead = true;
+                    return;
+                }
+                chromeTouch.swiping = true;
+                swipeBegin(chromeTouch.article);
+            }
+            if (swipe && swipe.article === chromeTouch.article) {
+                event.preventDefault();
+                swipeMove(dx);
+            }
+        },
+        { passive: false }
+    );
+
+    function endChromeTouch(event) {
+        if (chromeTouch && chromeTouch.swiping && swipe && swipe.article === chromeTouch.article) {
+            var point = event.changedTouches && event.changedTouches[0];
+            swipeEnd(point ? point.clientX - chromeTouch.x : swipe.dx, event.type !== "touchend");
+        }
+        chromeTouch = null;
+    }
+
+    document.addEventListener("touchend", endChromeTouch, { passive: true });
+    document.addEventListener("touchcancel", endChromeTouch, { passive: true });
+
     /* --- live view -------------------------------------------------------- */
 
     /* Served by the add-on while Anki runs, the page is no longer a fixed set
@@ -2119,7 +2444,8 @@
         total: 0,
         loaded: 0,
         loading: false,
-        exhausted: false
+        exhausted: false,
+        gone: 0 /* swiped off the page since the scope was loaded */
     };
 
     function liveUrl(path, params) {
@@ -2150,8 +2476,10 @@
 
     /* Building an Anki search out of what is ticked ------------------------- */
 
-    function quoteTerm(value) {
-        return '"' + String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"';
+    /* Inside the quotes Anki still reads the backslash, the quote and the
+       wildcards * and _ specially. */
+    function quoteTerm(value, suffix) {
+        return '"' + String(value).replace(/[\\"*_]/g, "\\$&") + (suffix || "") + '"';
     }
 
     function liveQuery() {
@@ -2216,7 +2544,7 @@
                 /* tag:x does not match x::y, so a branch has to say both. */
                 term: function (name) {
                     return (
-                        "(tag:" + quoteTerm(name) + " OR tag:" + quoteTerm(name + "::*") + ")"
+                        "(tag:" + quoteTerm(name) + " OR tag:" + quoteTerm(name, "::*") + ")"
                     );
                 }
             },
@@ -2232,287 +2560,66 @@
         ];
     }
 
-    /* Which deck is being read --------------------------------------------- */
+    /* The scope the page was opened on ------------------------------------- */
 
-    /* The panel can already reach every deck in the collection: a tick there
-       becomes a deck: term in the search the server runs, and the collection is
-       all there whatever the export dialog was pointed at when the page opened.
-       What the panel cannot do is say where you are. It is a drawer, it ticks
-       several decks at once, and nothing in the bar names the one on screen.
-       So the bar carries the deck itself and switching is a click and a name.
+    /* A scope comes in through the address -- from the export dialog, or a
+       link handed on. Its deck and tag terms become ticks in the panel and
+       only the rest stays typed: the panel is then in charge, and a tick
+       replaces what the dialog chose rather than fighting it. The forms the
+       dialog and this page write, and the bare one, are all read. */
+    var TERM_RE = /"(deck|tag):((?:[^"\\]|\\.)+)"|(deck|tag):"((?:[^"\\]|\\.)+)"|(deck|tag):([^\s()"]+)/g;
 
-       Both write state.filters.decks, so neither can contradict the other. */
-
-    var deckBox = document.querySelector('[data-control="deck"]');
-    var deckButton = deckBox ? deckBox.querySelector("[data-menu-toggle]") : null;
-    var deckNameLabel = control("deck-name");
-    var deckFind = control("deck-find");
-    var deckList = control("deck-list");
-    var deckNames = [];
-    var deckActive = -1;
-
-    /* A backstop rather than a working limit. Building every row of a made-up
-       three thousand deck collection cost nothing measurable, so the cap sits
-       far above what a real one has -- the largest shared decks run to a few
-       hundred -- and a reader scrolling their own decks never meets it. What
-       it prevents is a pathological collection laying out a hundred thousand
-       pixels of list on every keystroke. Above it the rest are reached by
-       typing, and the list says how many it is not showing rather than ending
-       silently as if that were all of them. */
-    var DECK_ROWS = 1000;
-
-    function deckLeaf(name) {
-        var parts = String(name).split("::");
-        return parts[parts.length - 1];
+    function unescapeTerm(text) {
+        return text.replace(/\\(.)/g, "$1");
     }
 
-    function deckSync() {
-        if (!deckBox || !deckNameLabel) {
+    function liftSeededTerms(tree) {
+        if (!searchInput) {
             return;
         }
-        var picked = state.filters.decks || [];
-        var text;
-        if (!picked.length) {
-            text = "All decks";
-        } else if (picked.length === 1) {
-            /* The leaf alone: a subdeck six levels down would otherwise push
-               everything else out of the bar. The whole path is in the tooltip
-               and in the list. */
-            text = deckLeaf(picked[0]);
-        } else {
-            /* Several can only have been ticked in the panel. Naming one of
-               them would be a lie about the other. */
-            text = picked.length + " decks";
-        }
-        deckNameLabel.textContent = text;
-        if (deckButton) {
-            deckButton.title = picked.length
-                ? picked.join(", ")
-                : "Every deck in the collection";
-        }
-    }
-
-    function deckRow(name, label, depth, selected) {
-        var row = document.createElement("button");
-        row.type = "button";
-        row.className = "ahe-deck-row";
-        row.setAttribute("role", "option");
-        row.setAttribute("data-deck", name);
-        row.setAttribute("aria-selected", selected ? "true" : "false");
-        row.style.paddingLeft = 8 + depth * 14 + "px";
-        row.title = name || "Every deck in the collection";
-
-        var tick = document.createElement("span");
-        tick.className = "ahe-deck-tick";
-        tick.setAttribute("aria-hidden", "true");
-        tick.textContent = "✓";
-        row.appendChild(tick);
-
-        var text = document.createElement("span");
-        text.className = "ahe-deck-row-name";
-        text.textContent = label;
-        row.appendChild(text);
-        return row;
-    }
-
-    function deckRows() {
-        return deckList ? deckList.querySelectorAll(".ahe-deck-row") : [];
-    }
-
-    function deckActivate(index) {
-        var rows = deckRows();
-        if (!rows.length) {
-            deckActive = -1;
+        var typed = searchInput.value.trim();
+        if (!typed) {
             return;
         }
-        deckActive = Math.max(0, Math.min(rows.length - 1, index));
-        for (var i = 0; i < rows.length; i++) {
-            rows[i].classList.toggle("is-active", i === deckActive);
-        }
-        if (rows[deckActive].scrollIntoView) {
-            rows[deckActive].scrollIntoView({ block: "nearest" });
-        }
-    }
-
-    function deckRender() {
-        if (!deckList) {
-            return;
-        }
-        var needle = (deckFind ? deckFind.value : "").trim().toLowerCase();
-        var picked = state.filters.decks || [];
-        var chosen = {};
-        picked.forEach(function (name) {
-            chosen[name] = true;
-        });
-
-        deckList.textContent = "";
-        deckActive = -1;
-
-        var matches = deckNames;
-        if (needle) {
-            matches = deckNames.filter(function (name) {
-                return name.toLowerCase().indexOf(needle) !== -1;
-            });
-        }
-
-        /* Not a deck, and first: leaving the deck out is a scope of its own --
-           what the tags, the note types and the typed search still say. */
-        deckList.appendChild(deckRow("", "All decks", 0, !picked.length));
-
-        matches.slice(0, DECK_ROWS).forEach(function (name) {
-            /* Indented against its parents while the whole tree is on show; a
-               filtered list has no parents to indent against, and a row reading
-               "Herz" would not say which Herz. */
-            var depth = needle ? 0 : name.split("::").length - 1;
-            deckList.appendChild(
-                deckRow(name, needle ? name : deckLeaf(name), depth, !!chosen[name])
-            );
-        });
-
-        if (matches.length > DECK_ROWS) {
-            var more = document.createElement("div");
-            more.className = "ahe-deck-more";
-            more.textContent =
-                matches.length - DECK_ROWS + " more — type to narrow the list";
-            deckList.appendChild(more);
-        } else if (needle && !matches.length) {
-            var none = document.createElement("div");
-            none.className = "ahe-deck-more";
-            none.textContent = "No deck of that name";
-            deckList.appendChild(none);
-        }
-
-        /* Open on the deck being read, so the arrow keys start from where the
-           reader is; while typing, on the best match, so Enter takes it. */
-        var start = 0;
-        if (!needle) {
-            var rows = deckRows();
-            for (var i = 0; i < rows.length; i++) {
-                if (rows[i].getAttribute("aria-selected") === "true") {
-                    start = i;
-                    break;
-                }
+        var decks = (tree && tree.decks) || [];
+        var tags = (tree && tree.tags) || [];
+        var rest = typed;
+        var lifted = false;
+        rest = rest.replace(TERM_RE, function (whole, k1, v1, k2, v2, k3, v3) {
+            var kind = k1 || k2 || k3;
+            var value = unescapeTerm(v1 || v2 || v3 || "");
+            /* The page's own tag term says a branch twice; the second half
+               is the same tick. */
+            if (kind === "tag" && /::\*$/.test(value)) {
+                value = value.replace(/::\*$/, "");
             }
-        } else if (deckRows().length > 1) {
-            start = 1;
-        }
-        deckActivate(start);
-    }
-
-    function deckClose() {
-        if (!deckBox) {
+            var known = kind === "deck" ? decks : tags;
+            if (known.indexOf(value) === -1) {
+                return whole;
+            }
+            var key = kind === "deck" ? "decks" : "tags";
+            state.filters[key] = state.filters[key] || [];
+            if (state.filters[key].indexOf(value) === -1) {
+                state.filters[key].push(value);
+            }
+            lifted = true;
+            return " ";
+        });
+        if (!lifted) {
             return;
         }
-        deckBox.classList.remove("open");
-        if (deckButton) {
-            deckButton.setAttribute("aria-expanded", "false");
+        /* What is left once the terms are out: a bare OR, empty brackets, the
+           joins the page itself writes between them. */
+        rest = rest.replace(/\(\s*(?:OR\s*)*\)/g, " ").replace(/\bOR\s+OR\b/g, "OR")
+            .replace(/^\s*OR\s+|\s+OR\s*$/g, " ").replace(/\(\s*OR\s+/g, "(").replace(/\s+OR\s*\)/g, ")")
+            .replace(/\(\s*\)/g, " ").replace(/\s+/g, " ").trim();
+        /* The dialog brackets its extra search; alone, the brackets say nothing */
+        var wrapped = /^\(([^()]*)\)$/.exec(rest);
+        if (wrapped) {
+            rest = wrapped[1].trim();
         }
-    }
-
-    function deckPick(name) {
-        /* One deck, replacing whatever was ticked. This is a switch, not a
-           second way to build a multi-deck filter -- the panel stays that. A
-           parent needs no children listed beside it, because Anki's own deck:
-           already covers what is below it. */
-        state.filters.decks = name ? [name] : [];
+        searchInput.value = rest;
         chosenCache = null;
-        deckClose();
-        if (deckButton) {
-            deckButton.focus();
-        }
-        applyFilters();
-    }
-
-    if (deckBox) {
-        /* Opening, closing and placing the panel are the bar's own doing --
-           this listener runs after that one, so the class is already what the
-           click made it. */
-        document.addEventListener("click", function (event) {
-            if (!event.target.closest) {
-                return;
-            }
-            var open = deckBox.classList.contains("open");
-            if (deckButton) {
-                deckButton.setAttribute("aria-expanded", open ? "true" : "false");
-            }
-            if (open && event.target.closest("[data-menu-toggle]") === deckButton) {
-                if (deckFind) {
-                    deckFind.value = "";
-                }
-                deckRender();
-                if (deckFind) {
-                    deckFind.focus();
-                }
-            }
-        });
-
-        deckList.addEventListener("click", function (event) {
-            var row = event.target.closest ? event.target.closest(".ahe-deck-row") : null;
-            if (row) {
-                deckPick(row.getAttribute("data-deck"));
-            }
-        });
-
-        if (deckFind) {
-            deckFind.addEventListener("input", deckRender);
-        }
-
-        deckBox.addEventListener("keydown", function (event) {
-            if (event.key === "Escape") {
-                deckClose();
-                if (deckButton) {
-                    deckButton.focus();
-                }
-                return;
-            }
-            if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-                event.preventDefault();
-                deckActivate(deckActive + (event.key === "ArrowDown" ? 1 : -1));
-                return;
-            }
-            /* A row has focus of its own and answers Enter by itself; this is
-               for the field above them, where the reader is while typing. */
-            if (event.key === "Enter" && event.target === deckFind) {
-                var rows = deckRows();
-                if (deckActive >= 0 && rows[deckActive]) {
-                    event.preventDefault();
-                    deckPick(rows[deckActive].getAttribute("data-deck"));
-                }
-            }
-        });
-    }
-
-    /* The export dialog opens the live view on the deck it was pointed at,
-       and it says so as a search: deck:"…". Left in the search box that fights
-       the deck box -- the two are ANDed, so picking another deck asks for
-       cards that are in two decks at once, which is none, and the bar claims
-       "All decks" while the page shows one. A search that is nothing but a
-       single deck therefore moves into the box, where it names where you are
-       and can be swapped for somewhere else. Anything more than a bare deck
-       term stays where it was typed: it is a search, not a place. */
-    function liftSeededDeck() {
-        if (!searchInput || !deckBox) {
-            return;
-        }
-        var match = /^deck:"([^"]+)"$|^deck:([^\s"]+)$/.exec(searchInput.value.trim());
-        var name = match && (match[1] || match[2]);
-        if (!name || deckNames.indexOf(name) === -1) {
-            return;
-        }
-        state.filters.decks = [name];
-        chosenCache = null;
-        searchInput.value = "";
-        deckSync();
-    }
-
-    function startDeckBox(decks) {
-        deckNames = decks || [];
-        if (!deckBox) {
-            return;
-        }
-        /* Shown only now: a box that offers nothing is worse than no box. */
-        deckBox.hidden = false;
-        deckSync();
     }
 
     /* Cards ---------------------------------------------------------------- */
@@ -2533,6 +2640,8 @@
         cursor = -1;
         liveState.loaded = 0;
         liveState.exhausted = false;
+        liveState.gone = 0;
+        forgetPutAway();
     }
 
     function liveAppend(result) {
@@ -2578,12 +2687,13 @@
 
     function liveCount() {
         var text;
+        var total = liveState.total - liveState.gone;
         if (!liveState.query) {
             text = "no scope selected";
         } else if (liveState.loaded >= liveState.total) {
-            text = liveState.total + " cards";
+            text = total + " cards";
         } else {
-            text = liveState.loaded + " of " + liveState.total + " cards";
+            text = liveState.loaded - liveState.gone + " of " + total + " cards";
         }
         if (countLabel) {
             countLabel.textContent = text;
@@ -2673,17 +2783,32 @@
         if (!qrLayer) {
             return;
         }
-        liveFetch("/api/qr", { q: liveState.query })
+        liveFetch((data.meta && data.meta.qrPath) || "/api/qr", { q: liveState.query })
             .then(function (result) {
                 if (!qrLayer) {
                     return; /* closed while it was being drawn */
                 }
                 if (!result.shared) {
                     qrMessage(
-                        "This page is only being served to this machine. Switch " +
+                        result.error ||
+                            "This page is only being served to this machine. Switch " +
                             "on “Also reachable from this network” in Anki and the " +
                             "code appears here."
                     );
+                    /* The narrator can open the network from here: its share
+                       is a setting of its own, not the dialog's. */
+                    if (result.enable) {
+                        var open = document.createElement("button");
+                        open.className = "ahe-qr-open";
+                        open.textContent = "Open to the local network";
+                        open.addEventListener("click", function (event) {
+                            event.stopPropagation();
+                            fetch(result.enable, { method: "POST", credentials: "same-origin",
+                                headers: { "Content-Type": "application/json" }, body: JSON.stringify({ share: true }) })
+                                .then(function () { qrMessage("Opening…"); });
+                        });
+                        qrLayer.querySelector(".ahe-qr-card").appendChild(open);
+                    }
                     qrRetry = setTimeout(drawQr, QR_RETRY);
                     return;
                 }
@@ -2693,6 +2818,19 @@
                 address.className = "ahe-qr-url";
                 address.textContent = result.url;
                 card.appendChild(address);
+                if (result.note) {
+                    var note = document.createElement("p");
+                    note.className = "ahe-qr-note";
+                    note.textContent = result.note;
+                    if (result.cert) {
+                        var link = document.createElement("a");
+                        link.href = result.cert;
+                        link.textContent = " Install the certificate.";
+                        link.addEventListener("click", function (event) { event.stopPropagation(); });
+                        note.appendChild(link);
+                    }
+                    card.appendChild(note);
+                }
             })
             .catch(function (error) {
                 qrMessage(String(error && error.message ? error.message : error));
@@ -2742,6 +2880,16 @@
     function liveScope() {
         var query = liveQuery();
         liveState.query = query;
+        if (narrator) {
+            if (window.AHE_NARRATOR) {
+                window.AHE_NARRATOR.scope(query);
+            } else {
+                /* Not there yet: the narrator's script starts after this one
+                   and asks for the scope it finds here. */
+                window.AHE_PENDING_SCOPE = query;
+            }
+            return Promise.resolve();
+        }
         if (!query) {
             liveReset();
             liveState.total = 0;
@@ -2806,8 +2954,7 @@
         liveFetch("/api/tree")
             .then(function (tree) {
                 NAV = liveSections(tree);
-                startDeckBox(tree.decks);
-                liftSeededDeck();
+                liftSeededTerms(tree);
                 chosenCache = null;
                 NAV.forEach(function (section) {
                     if (!state.filters[section.key]) {

@@ -1,107 +1,142 @@
 # Anki HTML Exporter
 
-Exports Anki cards to a browsable HTML page in which **every card is rendered by
-Anki's own engine** — so a card in the export looks the way it looks in the
-reviewer. The same dialog can also serve that page live out of the running
-collection, without writing anything.
+Exports Anki cards to a browsable HTML page in which **every card is rendered
+by Anki's own engine** — a card in the export looks the way it looks in the
+reviewer. The same dialog serves that page live from the running collection,
+reads the cards aloud (**Narrator**, with an OpenAI API key), and plays them
+as a rapid presentation (**Hypnagog**).
 
 ![The export in use](Teaser.webp)
 
-![The export dialog](Screenshot.png)
-
 ## Install
 
-From AnkiWeb: **Tools → Add-ons → Get Add-ons…**, code `265861717`. Or build the
-`.ankiaddon` yourself (see below) and drop it on Anki.
+From AnkiWeb: **Tools → Add-ons → Get Add-ons…**, code `265861717`. Or build
+the `.ankiaddon` with `python3 build_addon.py` and drop it on Anki.
 
-## Use it
+## Four ways to use it
 
-**Tools → Export to HTML…**, or select cards in the browser and use the context
-menu. Pick a deck, any number of tags, and optionally an Anki search
-(`is:due`, `-tag:leech`, `added:30`); the *Content* tab decides what a card
-shows. **Export** writes the page, **Browse live** opens the same cards in your
-browser without writing anything.
+**Tools → Export to HTML…**, or select cards in the browser and use the
+context menu. Pick a deck, tags, and optionally an Anki search (`is:due`,
+`-tag:leech`, `added:30`); the *Content* tab decides what a card shows.
 
-## What the page does
+| Button | What it does | Needs |
+|---|---|---|
+| **Export** | Writes the page to disk — a folder, or one self-contained file | — |
+| **Browse live** | Serves the same page from the running collection, nothing written | — |
+| **Narrate** | A narrated slide show: each card told by a language model and read aloud | OpenAI API key |
+| **Hypnagog** | A rapid full-screen presentation of the facts | — |
 
-- **Card sides**: *Auto* (Anki's answer side, plus the question for cards whose
-  answer does not repeat it), *Q + A*, *A* or *Q* — for every card at once, or
-  per card from the chips in its header.
-- **Reveal on click** for cloze deletions and image occlusion masks.
-- **Study mode**: only the front is shown, space reveals, arrow keys walk the
-  stack.
-- **Filter…**: deck and tag trees, note types, card states and flags, each with
-  a count. Plus a search box over card text, fields, tags and IDs.
-- **Info / Details / Fields**: the card's header row, its scheduling strip and
-  the raw note fields — each switchable, and each with a list to choose what it
-  holds.
-- **Shuffle**, **Night mode**, and **Print**, which lays the cards out for paper
-  at one of three densities, scaling each card as a whole so none is torn
-  between columns.
+![The export dialog](Screenshot.png)
 
-Cards are mounted as they come near the viewport and released again once they
-are well past, at most forty at a time — which is what lets an export of a
-shared deck stay usable. What you have uncovered comes back when a card is
-built again.
+## The page
+
+- **Card sides** — *Auto* (Anki's answer side, plus the question when the
+  answer does not repeat it), *Q + A*, *A* or *Q*; for all cards, or per card.
+- **Reveal on click** for cloze deletions and image occlusion masks;
+  **study mode** shows the front only and reveals on space.
+- **Filter** by deck, tag, note type, card state and flag, with counts; a
+  search box over text, fields, tags and ids.
+- **Info / Details / Fields** — header row, scheduling strip and raw note
+  fields, each switchable.
+- **Shuffle**, **night mode**, **print** at three densities; on a phone,
+  swipe a card away.
+
+Cards are mounted as they come near the viewport and released once past,
+so an export of a shared deck stays usable.
+
+**Output.** A folder (`index.html` with `media/`, `css/`, `js/`; MathJax and
+jQuery only when a card needs them) or a single `.html` with media inlined.
+Media is copied straight out of `collection.media` — audio, video, fonts,
+SVG — and `[sound:…]` becomes a player. Remote `http(s)` media is left
+alone unless *Download media referenced by URLs* is on.
 
 ## Browsing live
 
-**Browse live** serves the collection to your browser while Anki runs. Nothing
-is written anywhere: cards render as you scroll and pictures come out of
-`collection.media`. It is the same page as the export, so everything above
-works — but the scope stays changeable, and it is the *whole* collection: the
-deck box in the bar reaches every deck there is, the filter panel offers every
-tag and note type, and the search box is Anki's own.
+**Browse live** serves the collection to your browser while Anki runs: cards
+render as you scroll, pictures come out of `collection.media`, and the scope
+stays changeable — **Filter…** offers every deck, tag and note type, the
+search box is Anki's own, and the decks and tags the dialog was pointed at
+arrive as ticks there, so changing them replaces the dialog's choice. Optionally the page can be
+reached from your network; **QR** shows the address as a code that carries the
+scope you are reading. Anyone with that address can read the whole
+collection, so hand it out with care. The server runs until *Stop* or until
+the profile closes.
 
-Optionally the page can be reached from your own network, so a phone or a second
-computer can read along. **QR** then shows the address as a code, in the dialog
-and in the page itself; it carries the scope you are reading, so the phone opens
-where you are. Anyone with that address can read the whole collection, so hand
-it out the way you would hand out the collection itself. Nothing the view serves
-writes to your collection.
+## Narrator
 
-The server keeps running when the dialog is closed; *Stop* ends it, and so does
-closing the profile.
+**Narrate** opens the cards of the dialog as a narrated slide show. Each card
+is shown as the export shows it, a language model writes a short spoken
+telling of it, and text-to-speech reads it. This uses OpenAI's API: enter an
+**OpenAI API key** under ⚙ on the page. Each narration is a model call and a
+speech call — roughly one to two cents per card with the default models —
+and nothing is spent without a key. The key is kept in the add-on's config.
 
-## Output and media
+- **Cards** — the dialog's scope, then **Filter…** (decks, tags, note types,
+  card states, flags) and any Anki search in the bar, exactly as in the live
+  view; browser, learning, creation or random order.
+- **Playing** — the front first, the back a few seconds into the narration or
+  on Enter; the cloze asked on the card is marked. Length per card 10 s to
+  2 min as a ceiling: a thin card stays short. Speed 1×–2× with pitch kept.
+- **Language** — the card's own, or one set under ⚙; the voice is directed
+  in it. Thirteen voices to choose from.
+- **Image occlusion** — the region under the mask is shown to the model, which
+  reads the hidden label; the narration is about that structure.
+- **Ask** — a microphone and a text line under the narration; the model
+  answers from the card, spoken in the same voice.
+- **Phone** — ▯ shows a QR code that opens the page over HTTPS on a phone in
+  the same network.
+- **Export** — ⇩ writes the scope as an audiobook (MP3, a chapter per card)
+  or a video (MP4). Needs `ffmpeg`. The dialog says what it would cost first.
+- **Cost** — a chip shows today's spend; the settings hold the counts, a daily
+  budget, and the price list. Scripts and audio are cached in
+  `user_files/cache/`, so a card narrated once costs nothing again.
 
-- **Folder** (default): `index.html` plus `media/`, `css/`, `js/`. MathJax
-  (~1.7 MB) and jQuery are copied in only when a card needs them.
-- **Single file**: one self-contained `.html` with media as `data:` URIs.
+| Key | |
+|---|---|
+| Space | play / pause |
+| ← → | previous / next card |
+| Enter | reveal the back |
 
-Media is copied straight out of `collection.media`, so audio, video, fonts and
-SVG survive, not just images; `[sound:…]` becomes a real player. `http(s)`
-references are left alone unless *Download media referenced by URLs* is on —
-the one part of the add-on that talks to anything but your own machine, and off
-by default.
+## Hypnagog
+
+**Hypnagog** opens the cards of the dialog as a rapid full-screen
+presentation in the browser: each fact flashes for an instant, shows — a
+cloze target blanked and then revealed in its own colour, an answer fading in
+under its question — and fades out; after a round the deck reshuffles. It
+starts at once on the dialog's cards with the settings kept; **Options** (top
+right, or the O key) opens a sheet over it for the cards (due, new, all,
+leeches, failed in the last day or week), how many, how long each shows, the
+look (with or without CRT effects and ambient tones) and progressive speed.
+Needs no key.
+
+![Hypnagog](Hypnagog.gif)
+
+| Key | |
+|---|---|
+| Space | pause / resume |
+| ← → | previous / next |
+| ↓ ↑ | dismiss a card / bring it forward |
+| 1 2 | clean / Polybius look |
+| 3 | cloze blanking on / off |
+| F11 | full screen |
+| O | options |
+| Esc | stop |
 
 ## Known limitations
 
-- Image occlusion **text** shapes are placed without measuring the glyphs the
-  way the reviewer's canvas does, so a label's plate can sit a pixel or two off.
-  Rectangles, ellipses and polygons are exact.
-- Media that a template's JavaScript builds at runtime (`src="${url}"`) cannot
-  be discovered, and is therefore not copied.
-- Other add-ons only affect the export if *Let add-ons post-process cards* is
-  enabled, and hooks written for the reviewer may inject controls that do
-  nothing outside Anki.
-- The live view's filter panel offers decks, tags and note types — not card
-  states or flags.
-
-## Building and tests
-
-```
-python3 build_addon.py            # both .ankiaddon files into dist/
-python3 build_addon.py --tailwind # regenerate the panel's stylesheet (needs Node)
-python3 tests/run.py              # the page in headless Chromium (needs Chromium)
-python3 tests/dialog_probe.py     # the Qt dialog, outside Anki (needs Anki's aqt)
-```
-
-The build refuses a payload whose versions disagree, whose assets are missing or
-whose generated stylesheet no longer matches the markup. `ahe/web/tailwind.css`
-is committed, so a normal build needs nothing but Python.
+- Image occlusion **text** shapes are placed without measuring the glyphs, so
+  a label's plate can sit a pixel or two off; rectangles, ellipses and
+  polygons are exact.
+- Media that a template's JavaScript builds at runtime cannot be discovered
+  and is not copied.
+- Other add-ons affect the export only with *Let add-ons post-process cards*
+  on, and hooks written for the reviewer may inject controls that do nothing
+  outside Anki.
 
 ## Requirements
 
-Anki 2.1.50 or later. **AnkiConnect is not required** — the add-on works
-directly with the collection, which is what gives it the real rendering engine.
+| | |
+|---|---|
+| Anki | 2.1.50 or later; AnkiConnect is not needed |
+| Narrator | an OpenAI API key; `ffmpeg` for its exports |
+| Everything else | nothing beyond Anki |

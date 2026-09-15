@@ -8,10 +8,12 @@ lives here:
 ``renderer``     turning a card into the HTML the reviewer would show
 ``writer``       assembling the export document(s)
 ``dialog``       the Qt front end
+``narrator``     the narrated slide show, a second page of the live server
+``hypnagog``     the rapid presentation, a third
 """
 
 # Kept in sync with manifest.json by build_addon.py. Shown in the dialog title
 # so that which build is running can be told at a glance -- add-ons are only
 # imported at start-up, so an edited source file is not necessarily the code
 # Anki is executing.
-__version__ = "2.3.0"
+__version__ = "2.5.0"

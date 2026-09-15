@@ -20,5 +20,88 @@
         "Card",
         "Card ID"
     ],
-    "last_search": ""
+    "last_search": "",
+    "include_hidden": false,
+    "narrator": {
+        "openai_api_key": "",
+        "order": "browser",
+        "text_model": "gpt-5.4",
+        "tts_model": "gpt-4o-mini-tts",
+        "stt_model": "gpt-4o-mini-transcribe",
+        "voice": "cedar",
+        "seconds": 30,
+        "gap": 1.0,
+        "reveal": "auto",
+        "reveal_gap": 2.0,
+        "style": "",
+        "language": "",
+        "include_hidden": false,
+        "vision": true,
+        "speed": 1.0,
+        "daily_budget": 0.0,
+        "pronunciation": {},
+        "share": false,
+        "apply_gui_hooks": false,
+        "last_search": "",
+        "ffmpeg": "ffmpeg",
+        "prices": {
+            "gpt-5.4": {
+                "input": 2.5,
+                "output": 15.0
+            },
+            "gpt-5.4-mini": {
+                "input": 0.75,
+                "output": 4.5
+            },
+            "gpt-5": {
+                "input": 1.25,
+                "output": 10.0
+            },
+            "gpt-5-mini": {
+                "input": 0.25,
+                "output": 2.0
+            },
+            "gpt-4.1": {
+                "input": 2.0,
+                "output": 8.0
+            },
+            "gpt-4o": {
+                "input": 2.5,
+                "output": 10.0
+            },
+            "gpt-4o-mini": {
+                "input": 0.15,
+                "output": 0.6
+            },
+            "gpt-4o-mini-tts": {
+                "per_minute": 0.015
+            },
+            "gpt-4o-mini-transcribe": {
+                "per_minute": 0.003
+            },
+            "gpt-4o-transcribe": {
+                "per_minute": 0.006
+            },
+            "whisper-1": {
+                "per_minute": 0.006
+            },
+            "tts-1": {
+                "per_1m_chars": 15.0
+            },
+            "tts-1-hd": {
+                "per_1m_chars": 30.0
+            }
+        }
+    },
+    "hypnagog": {
+        "prime_ms": 80,
+        "show_ms": 2500,
+        "consolidate_ms": 800,
+        "round_pause_ms": 1200,
+        "visual_mode": 2,
+        "max_cards": 50,
+        "card_source": "due",
+        "progressive_speed": false,
+        "include_hidden": false
+    }
 }

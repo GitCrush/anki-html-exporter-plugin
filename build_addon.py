@@ -45,6 +45,7 @@ TAILWIND_SOURCES = [
     TAILWIND_INPUT,
     ROOT / "ahe" / "web" / "shell.js",
     ROOT / "ahe" / "writer.py",
+    ROOT / "ahe" / "hypnagog" / "web" / "index.html",
 ]
 
 # Everything that belongs in the add-on, in the order it is written.
@@ -70,6 +71,32 @@ PAYLOAD = [
     "ahe/web/shell.js",
     "ahe/web/shim.js",
     "ahe/web/tailwind.css",
+    "ahe/hypnagog/__init__.py",
+    "ahe/hypnagog/extract.py",
+    "ahe/hypnagog/routes.py",
+    "ahe/hypnagog/service.py",
+    "ahe/hypnagog/web/app.js",
+    "ahe/hypnagog/web/hypnagog.js",
+    "ahe/hypnagog/web/index.html",
+    "ahe/narrator/__init__.py",
+    "ahe/narrator/capture.py",
+    "ahe/narrator/chat.py",
+    "ahe/narrator/config.py",
+    "ahe/narrator/imaging.py",
+    "ahe/narrator/mp3.py",
+    "ahe/narrator/narrate.py",
+    "ahe/narrator/occlusion.py",
+    "ahe/narrator/openai_api.py",
+    "ahe/narrator/outputs.py",
+    "ahe/narrator/routes.py",
+    "ahe/narrator/service.py",
+    "ahe/narrator/text.py",
+    "ahe/narrator/tls.py",
+    "ahe/narrator/usage.py",
+    "ahe/narrator/view.py",
+    "ahe/narrator/web/app.css",
+    "ahe/narrator/web/app.js",
+    "ahe/narrator/web/body.html",
 ]
 
 MANIFEST = "manifest.json"
@@ -168,6 +195,17 @@ def check() -> str:
     for name in RUNTIME_WEB_ASSETS:
         if f"ahe/web/{name}" not in PAYLOAD:
             fail(f"ahe/web/{name} is loaded at runtime but not in the payload")
+    for name in ("app.css", "app.js", "body.html"):
+        if f"ahe/narrator/web/{name}" not in PAYLOAD:
+            fail(f"ahe/narrator/web/{name} is loaded at runtime but not in the payload")
+    # Every module and web file of the packages, so a new one cannot be forgotten
+    for package in ("narrator", "hypnagog"):
+        for module in sorted((ROOT / "ahe" / package).glob("*.py")):
+            if f"ahe/{package}/{module.name}" not in PAYLOAD:
+                fail(f"ahe/{package}/{module.name} is not in the payload")
+        for asset in sorted((ROOT / "ahe" / package / "web").iterdir()):
+            if asset.is_file() and not asset.name.endswith("_stable") and f"ahe/{package}/web/{asset.name}" not in PAYLOAD:
+                fail(f"ahe/{package}/web/{asset.name} is not in the payload")
 
     # config.json is the defaults file Anki shows; it has to parse and to cover
     # the keys the add-on reads back.
@@ -176,6 +214,14 @@ def check() -> str:
     for key in re.findall(r'^\s{4}"([a-z_]+)":', defaults_src, re.M):
         if key not in config:
             fail(f"config.json is missing the default for {key!r}")
+    hypnagog_src = (ROOT / "ahe" / "hypnagog" / "routes.py").read_text(encoding="utf-8")
+    for key in re.findall(r'^\s{4}"([a-z_0-9]+)":', hypnagog_src.split("DEFAULTS: dict")[1].split("STATIC")[0], re.M):
+        if key not in config.get("hypnagog", {}):
+            fail(f"config.json is missing the hypnagog default for {key!r}")
+    narrator_src = (ROOT / "ahe" / "narrator" / "config.py").read_text(encoding="utf-8")
+    for key in re.findall(r'^\s{4}"([a-z_]+)":', narrator_src.split("DEFAULTS: dict")[1].split("PAGE_KEYS")[0], re.M):
+        if key not in config.get("narrator", {}):
+            fail(f"config.json is missing the narrator default for {key!r}")
 
     if any(part == "__pycache__" for name in PAYLOAD for part in Path(name).parts):
         fail("payload contains bytecode")

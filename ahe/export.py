@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Sequence
@@ -34,7 +35,31 @@ class ExportRequest:
     errors: list[str] = field(default_factory=list)
 
 
-def build_search(deck: str | None, tags: Sequence[str], extra: str = "") -> str:
+# A suspended or buried card is one the user has taken out of the way, and an
+# Anki search returns it all the same -- so an export of a deck was showing
+# cards its owner had deliberately set aside.
+HIDDEN_TERMS = "-is:suspended -is:buried"
+_HIDDEN_RE = re.compile(r"(?<![\w:-])is:(suspended|buried)\b", re.IGNORECASE)
+
+
+def without_hidden(search: str) -> str:
+    """The search, narrowed to cards that are neither suspended nor buried.
+
+    A search that asks for those states itself (``is:suspended``, not the
+    negated form) is left alone; adding the exclusion would match nothing.
+    """
+    search = search.strip()
+    if not search or _HIDDEN_RE.search(search):
+        return search
+    return f"({search}) {HIDDEN_TERMS}"
+
+
+def build_search(
+    deck: str | None,
+    tags: Sequence[str],
+    extra: str = "",
+    include_hidden: bool = False,
+) -> str:
     """Compose an Anki search from the dialog's filter widgets."""
     parts: list[str] = []
     if deck:
@@ -45,11 +70,18 @@ def build_search(deck: str | None, tags: Sequence[str], extra: str = "") -> str:
     extra = extra.strip()
     if extra:
         parts.append(f"({extra})")
-    return " ".join(parts)
+    search = " ".join(parts)
+    return search if include_hidden else without_hidden(search)
 
 
 def _escape(text: str) -> str:
-    return text.replace("\\", "\\\\").replace('"', '\\"')
+    """A deck or tag name as it goes inside a quoted search term.
+
+    Inside the quotes Anki still reads the backslash, the quote and the
+    wildcards ``*`` and ``_`` specially -- and shared decks are full of
+    underscores (``Ankizin::M1_Vorklinik``) and the odd asterisk.
+    """
+    return re.sub(r'[\\"*_]', lambda m: "\\" + m.group(0), text)
 
 
 def find_card_ids(col: Any, request: ExportRequest) -> list[int]:

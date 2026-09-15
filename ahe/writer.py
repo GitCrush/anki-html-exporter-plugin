@@ -26,29 +26,6 @@ WEB_DIR = Path(__file__).with_name("web")
 
 # Tailwind ships no base reset here -- see tailwind/input.css for why -- so a
 # button has to be told not to look like a native one.
-def _deck_picker() -> str:
-    """The deck being read, and the way to another one. Live view only.
-
-    An export is a fixed set of cards -- there is no other deck to switch to,
-    so this is not written into one at all. In the live view the collection is
-    all there, and the panel can already reach every deck of it; what it cannot
-    do is say *where you are*. It is a drawer, it ticks several decks at once,
-    and nothing in the bar names the one on screen. So the bar carries the deck
-    itself, and switching is a click and a name rather than opening a panel and
-    hunting for a row.
-
-    It starts hidden and is shown once the collection has said what decks there
-    are: a box offering nothing is worse than no box.
-    """
-    return """<span class="ahe-menu ahe-deck" data-control="deck" hidden>
-<button class="ahe-deck-button" data-menu-toggle aria-haspopup="listbox" aria-expanded="false" title="Choose which deck is being read"><span class="ahe-deck-name" data-control="deck-name">All decks</span><span class="ahe-deck-caret" aria-hidden="true">▾</span></button>
-<div class="ahe-menu-panel ahe-deck-panel">
-<div class="ahe-deck-find"><input type="search" data-control="deck-find" placeholder="Find a deck…" aria-label="Find a deck"></div>
-<div class="ahe-deck-list" role="listbox" data-control="deck-list"></div>
-</div>
-</span>"""
-
-
 def _nav_panel() -> str:
     """The filter panel's shell, empty until the page fills it.
 
@@ -355,6 +332,7 @@ class ExportWriter:
         asset_prefix: str,
         field_names: list[str] | None = None,
         special_names: list[str] | None = None,
+        narrator: dict | None = None,
     ) -> str:
         """The export page with no cards in it yet.
 
@@ -366,6 +344,13 @@ class ExportWriter:
         the *Fields* and *Details* controls would be switches with nothing
         behind them, and every field would be shown with no way to say
         otherwise.
+
+        With ``narrator`` the same page is the narrator's: the head line, the
+        panel, the search and night mode are the export's own, driven by the
+        same script; the tools line and what stands below the bar are the
+        narrator's (``narrator["body"]``, its stylesheet and script under
+        ``narrator["asset_prefix"]``), and the QR code asks the narrator's
+        share endpoint, which speaks TLS for the phone's microphone.
         """
         options = self.options
         fields = [
@@ -405,8 +390,13 @@ class ExportWriter:
             "css": {},
             "cards": [],
         }
+        if narrator:
+            payload["meta"]["narrator"] = True
+            payload["meta"]["qrPath"] = narrator.get("qr_path", "/api/qr")
 
         root_classes = [f"mode-{options.view_mode}", "ahe-live"]
+        if narrator:
+            root_classes.append("ahe-narrator")
         for enabled, name in (
             (options.show_meta, "show-meta"),
             (options.show_special, "show-special"),
@@ -422,18 +412,20 @@ class ExportWriter:
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{html.escape(options.title)}</title>
+<title>{html.escape(narrator["title"] if narrator else options.title)}</title>
 <link rel="stylesheet" href="{asset_prefix}tailwind.css">
 <link rel="stylesheet" href="{asset_prefix}shell.css">
+{f'<link rel="stylesheet" href="{narrator["asset_prefix"]}app.css">' if narrator else ""}
 </head>
 <body>
-{self._bar(0, fields, specials, set(hidden_special), live=True)}
+{self._bar(0, fields, specials, set(hidden_special), live=True, narrator=narrator)}
 {_nav_panel()}
-<main>
+{narrator["body"] if narrator else "<main>"}
 <p class="ahe-empty" hidden>No card matches the current search.</p>
-</main>
+{"" if narrator else "</main>"}
 <script type="application/json" id="ahe-data">{_json_for_script(payload)}</script>
 <script src="{asset_prefix}shell.js"></script>
+{f'<script src="{narrator["asset_prefix"]}app.js"></script>' if narrator else ""}
 </body>
 </html>
 """
@@ -513,6 +505,7 @@ class ExportWriter:
         special_names: list[str],
         hidden_special: set[str],
         live: bool = False,
+        narrator: dict | None = None,
     ) -> str:
         options = self.options
         note = (
@@ -525,10 +518,10 @@ class ExportWriter:
         # you do. A single wrapping row let the window width decide which
         # control landed in which line, so the same bar had a different shape
         # at every size.
+        title = narrator["title"] if narrator else options.title
         return f"""<header class="ahe-bar">
 <div class="ahe-bar-line ahe-bar-head">
-<span class="ahe-title">{html.escape(options.title)}</span>
-{_deck_picker() if live else ""}
+<span class="ahe-title">{html.escape(title)}</span>
 <span class="ahe-count" data-control="count">{count} cards</span>
 {note}
 <span class="ahe-spacer"></span>
@@ -536,7 +529,11 @@ class ExportWriter:
 <button class="ahe-solid" data-control="nav" aria-expanded="false" title="Filter by deck, tag, note type, state or flag">Filter…</button>
 <input type="search" data-control="search" placeholder="Search…" aria-label="Search cards">
 </div>
-<div class="ahe-bar-line ahe-bar-tools">
+{_narrator_tools(narrator) if narrator else self._tools_line(options, field_names, special_names, hidden_special)}
+</header>"""
+
+    def _tools_line(self, options, field_names, special_names, hidden_special) -> str:
+        return f"""<div class="ahe-bar-line ahe-bar-tools">
 <span class="ahe-segmented" role="group" aria-label="Card sides">
 <button data-mode="auto" title="Anki's answer side, which normally carries the question with it; the question is shown separately only for cards whose answer does not contain it">Auto</button>
 <button data-mode="qa" title="Question and answer separately, with the repeated question trimmed from the answer">Q + A</button>
@@ -574,8 +571,7 @@ class ExportWriter:
 </span>
 <span class="ahe-sep"></span>
 {_print_menu()}
-</div>
-</header>"""
+</div>"""
 
     def _card_html(self, card: RenderedCard, index: int, total: int) -> str:
         options = self.options
@@ -663,6 +659,45 @@ def _special_value(card: RenderedCard, name: str) -> str:
 
 def _read_web(name: str) -> str:
     return (WEB_DIR / name).read_text(encoding="utf-8")
+
+
+def _narrator_tools(narrator: dict) -> str:
+    """The narrator's tools line, in the bar's own idiom.
+
+    The same groups and separators the export's line has, with the narrator's
+    choices in them -- order, length, voice, speed -- and its buttons; the
+    night switch is the shell's own, in the place it has on the export's line.
+    """
+    def select(name: str, title: str, choices: list, current: str) -> str:
+        opts = "".join(
+            f'<option value="{html.escape(str(value), quote=True)}"{" selected" if str(value) == str(current) else ""}>'
+            f"{html.escape(str(label))}</option>"
+            for value, label in choices
+        )
+        return (f'<label class="ahe-pick" title="{html.escape(title, quote=True)}">'
+                f'<select data-control="{name}" aria-label="{html.escape(title, quote=True)}">{opts}</select></label>')
+
+    return f"""<div class="ahe-bar-line ahe-bar-tools">
+<span class="ahe-group">
+{select("order", "The order the cards come in", narrator["orders"], narrator["order"])}
+{select("seconds", "How long the narration of one card may be", narrator["durations"], narrator["seconds"])}
+{select("voice", "The voice that reads", narrator["voices"], narrator["voice"])}
+{select("speed", "Playback speed — the audio is stretched, its pitch kept", narrator["speeds"], narrator["speed"])}
+</span>
+<span class="ahe-sep"></span>
+<span class="ahe-group">
+<button data-control="usage" title="What the narrations have cost — click for details" hidden>$0.00</button>
+<button data-control="export" title="Export the narrations as an audiobook or a video">Export…</button>
+</span>
+<span class="ahe-sep"></span>
+<span class="ahe-group">
+<button data-control="dark" aria-pressed="{_pressed(bool(narrator.get("dark")))}" title="Switch cards and page to night mode">Night</button>
+</span>
+<span class="ahe-sep"></span>
+<span class="ahe-group">
+<button data-control="settings" title="Key, models, language, style, budget, pronunciation">Settings…</button>
+</span>
+</div>"""
 
 
 def _pressed(value: bool) -> str:

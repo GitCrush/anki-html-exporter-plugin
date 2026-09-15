@@ -17,6 +17,8 @@ from aqt.utils import openFolder, showInfo, showWarning, tooltip
 from . import __version__
 from . import config as addon_config
 from . import live
+from .hypnagog import service as hypnagog_service
+from .narrator import service as narrator_service
 from . import qr
 from .export import ORDERS, ExportAborted, ExportRequest, build_search, run_export
 from .renderer import FLAG_NAMES, SPECIAL_NAMES
@@ -72,6 +74,23 @@ class ExportDialog(QDialog):
             "tags and the search stay changeable in the page."
         )
         self.live_button.clicked.connect(self._browse_live)
+        self.narrator_button = buttons.addButton(
+            "Narrate", QDialogButtonBox.ButtonRole.ActionRole
+        )
+        self.narrator_button.setToolTip(
+            "Open these cards as a narrated slide show: each card read aloud by "
+            "a language model's telling of it. Needs an OpenAI key, entered on "
+            "the page."
+        )
+        self.narrator_button.clicked.connect(self._narrate)
+        self.hypnagog_button = buttons.addButton(
+            "Hypnagog", QDialogButtonBox.ButtonRole.ActionRole
+        )
+        self.hypnagog_button.setToolTip(
+            "Open these cards as a rapid full-screen presentation: each fact "
+            "flashed, shown with its cloze revealed piece by piece, and faded."
+        )
+        self.hypnagog_button.clicked.connect(self._hypnagog)
         buttons.addButton(QDialogButtonBox.StandardButton.Close)
         buttons.rejected.connect(self.reject)
         self.export_button.clicked.connect(self.start_export)
@@ -165,12 +184,37 @@ class ExportDialog(QDialog):
 
     def _browse_live(self) -> None:
         try:
-            live.start(self._live_options(), share=self.live_share.isChecked())
+            live.start(
+                self._live_options(),
+                share=self.live_share.isChecked(),
+                include_hidden=self.include_hidden.isChecked(),
+            )
         except OSError as error:
             showWarning(f"Could not start the live view: {error}", parent=self)
             return
         self._refresh_live()
         live.open_in_browser(self._live_search())
+
+    def _serve_page(self, opener) -> None:
+        """Another page of the live server, on the cards this dialog shows."""
+        try:
+            if not live.is_running():
+                live.start(
+                    self._live_options(),
+                    share=self.live_share.isChecked(),
+                    include_hidden=self.include_hidden.isChecked(),
+                )
+        except OSError as error:
+            showWarning(f"Could not start the live view: {error}", parent=self)
+            return
+        self._refresh_live()
+        opener(self._live_search())
+
+    def _narrate(self) -> None:
+        self._serve_page(narrator_service.open_in_browser)
+
+    def _hypnagog(self) -> None:
+        self._serve_page(hypnagog_service.open_in_browser)
 
     def _live_search(self) -> str:
         """The scope the live view opens on.
@@ -181,7 +225,7 @@ class ExportDialog(QDialog):
         if self._use_browser_selection():
             ids = list(self.card_ids or [])
             return " OR ".join(f"cid:{cid}" for cid in ids) if ids else ""
-        return self.current_search()
+        return self.current_search(plain=True)
 
     def _stop_live(self) -> None:
         live.stop()
@@ -323,6 +367,11 @@ class ExportDialog(QDialog):
         )
         self.search_input.textChanged.connect(self._on_filter_changed)
         form.addWidget(self.search_input)
+
+        self.include_hidden = QCheckBox("Include suspended and buried cards")
+        self.include_hidden.setChecked(bool(self.config.get("include_hidden", False)))
+        self.include_hidden.toggled.connect(self._on_filter_changed)
+        form.addWidget(self.include_hidden)
 
         self.query_preview = QLabel("")
         self.query_preview.setWordWrap(True)
@@ -537,12 +586,19 @@ class ExportDialog(QDialog):
     def _use_browser_selection(self) -> bool:
         return self.use_selection is not None and self.use_selection.isChecked()
 
-    def current_search(self) -> str:
+    def current_search(self, plain: bool = False) -> str:
+        """The search the filter widgets add up to.
+
+        ``plain`` leaves suspended and buried cards in regardless of the
+        checkbox -- for the live view, whose server applies that rule itself
+        so it also holds once the reader changes the scope in the page.
+        """
         deck = self.deck_box.currentText()
         return build_search(
             None if deck == ALL_DECKS else deck,
             self.tag_input.get_tags(),
             self.search_input.text(),
+            include_hidden=plain or self.include_hidden.isChecked(),
         )
 
     def current_card_ids(self) -> list[int]:
@@ -660,6 +716,7 @@ class ExportDialog(QDialog):
                 "excluded_fields": _unchecked_names(self.field_list),
                 "excluded_special": _unchecked_names(self.special_list),
                 "last_search": self.search_input.text(),
+                "include_hidden": self.include_hidden.isChecked(),
             }
         )
         addon_config.save_config(self.config)

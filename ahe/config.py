@@ -27,6 +27,12 @@ DEFAULTS: dict[str, Any] = {
     "excluded_fields": [],
     "excluded_special": list(DEFAULT_EXCLUDED_SPECIAL),
     "last_search": "",
+    "include_hidden": False,
+    # The narrator's own settings, see narrator/config.py; kept as one entry
+    # so the export's keys stay what they were.
+    "narrator": {},
+    # Hypnagog's, see hypnagog/routes.py
+    "hypnagog": {},
 }
 
 

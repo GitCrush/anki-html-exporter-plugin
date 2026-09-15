@@ -113,8 +113,11 @@ html.ahe-interactive .ahe-io-maskable {
 }
 
 .ahe-io-shape {
-    cursor: pointer;
     transition: opacity 120ms ease;
+}
+
+html.ahe-interactive .ahe-io-shape {
+    cursor: pointer;
 }
 
 /* A lifted shape keeps its place -- clicking again puts it back. */

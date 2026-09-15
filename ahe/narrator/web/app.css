@@ -1,0 +1,123 @@
+/* The narrator below the export's bar. Everything here builds on shell.css:
+   its tokens (--ahe-*), its night mode (html.ahe-dark), its bar. Nothing is
+   re-coloured; the page is the export's page with different content. */
+
+[hidden] { display: none !important; }
+
+/* The bar's selects, in the look of its solid controls */
+.ahe-bar .ahe-pick { display: inline-flex; align-items: center; flex: 0 0 auto; }
+.ahe-bar .ahe-pick select {
+  font: inherit; color: var(--ahe-fg); background: var(--ahe-surface-2);
+  border: 1px solid var(--ahe-border); border-radius: 7px; padding: 4px 8px; cursor: pointer;
+}
+.ahe-bar .ahe-pick select:hover { border-color: var(--ahe-accent-soft); }
+.ahe-count.is-bad { color: #c0392b; }
+.ahe-bar button[data-control="usage"] { font-variant-numeric: tabular-nums; }
+
+/* The page is one screen: the bar, the stage with the text beside it, the transport */
+html.ahe-narrator, html.ahe-narrator body { height: 100%; }
+html.ahe-narrator body { display: flex; flex-direction: column; }
+.narrator-main {
+  flex: 1; min-height: 0; max-width: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: 1fr minmax(260px, 360px);
+}
+.narrator-main.script-hidden { grid-template-columns: 1fr; }
+.narrator-main.script-hidden .script-text, .narrator-main.script-hidden .chat { display: none; }
+.narrator-main.script-hidden .script { position: absolute; right: 12px; bottom: 60px; width: auto; border: none; background: transparent; }
+@media (max-width: 800px) {
+  .narrator-main { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
+  .script { max-height: 35vh; border-left: none; border-top: 1px solid var(--ahe-border); }
+}
+
+.stage { overflow: auto; padding: 16px 20px; display: flex; flex-direction: column; align-items: center; }
+.empty { max-width: 520px; margin: 12vh auto; text-align: center; color: var(--ahe-fg-muted); }
+.empty h1 { font-size: 22px; color: var(--ahe-fg); }
+.card {
+  width: min(100%, 960px); background: var(--ahe-surface); border: 1px solid var(--ahe-border);
+  border-radius: var(--ahe-radius); box-shadow: var(--ahe-shadow); overflow: hidden;
+}
+.side { padding: 6px; }
+.side + .side { border-top: 1px dashed var(--ahe-border); }
+.side iframe { display: block; width: 100%; height: 80px; border: 0; background: transparent; transition: height .15s ease; }
+
+/* The text beside the card */
+.script { border-left: 1px solid var(--ahe-border); background: var(--ahe-surface); padding: 12px 16px; overflow: auto; }
+.script-head { display: flex; align-items: center; gap: 8px; color: var(--ahe-fg-muted); font-size: 12px; }
+.script-head #script-state { flex: 1; }
+.script-text { font-size: 16px; line-height: 1.6; }
+.script-text p { margin: 0 0 .8em; }
+.script-text p:last-child { margin-bottom: 0; }
+/* The last paragraph is the card's message in one sentence. */
+.script-text p:last-child:not(:first-child) { border-left: 3px solid var(--ahe-accent-soft); padding-left: 10px; font-weight: 500; }
+.script-text strong { font-weight: 600; background: var(--ahe-accent-wash); border-radius: 3px; padding: 0 2px; }
+.script-text.pending { color: var(--ahe-fg-muted); font-style: italic; white-space: pre-wrap; }
+.script-text.error { color: #c0392b; white-space: pre-wrap; }
+
+/* Buttons and inputs outside the bar */
+.narrator-main button, .transport button, dialog button, dialog input, dialog select, dialog textarea, .chat-row input {
+  font: inherit; color: var(--ahe-fg); background: var(--ahe-surface); border: 1px solid var(--ahe-border); border-radius: 7px; padding: 5px 10px;
+}
+.narrator-main button, .transport button, dialog button { cursor: pointer; }
+.narrator-main button:hover, .transport button:hover, dialog button:hover { background: var(--ahe-surface-2); }
+dialog button.primary { background: var(--ahe-accent); color: #fff; border-color: var(--ahe-accent); }
+button.small { padding: 2px 8px; font-size: 12px; }
+button.icon { padding: 5px 10px; font-size: 16px; line-height: 1; }
+
+/* Talking about the card */
+.chat { margin-top: 14px; border-top: 1px solid var(--ahe-border); padding-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.chat-log { display: flex; flex-direction: column; gap: 6px; font-size: 14px; line-height: 1.5; }
+.chat-log .turn { padding: 6px 10px; border-radius: 10px; max-width: 92%; }
+.chat-log .turn.user { align-self: flex-end; background: var(--ahe-accent); color: #fff; }
+.chat-log .turn.assistant { align-self: flex-start; background: var(--ahe-surface-2); }
+.chat-log .turn.pending { color: var(--ahe-fg-muted); font-style: italic; }
+.chat-error { color: #c0392b; font-size: 12px; margin: 0; }
+.chat-row { display: flex; gap: 6px; align-items: center; }
+.chat-row input { flex: 1; min-width: 0; }
+.mic { position: relative; width: 36px; height: 36px; border-radius: 50% !important; border: 0 !important; background: var(--ahe-accent) !important; color: #fff !important; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; flex: none; padding: 0 !important; }
+.mic.recording { background: #dc2626 !important; animation: mic-pulse 1.2s ease-in-out infinite; }
+.mic.busy { background: var(--ahe-fg-muted) !important; cursor: progress; }
+.mic-hint { position: absolute; bottom: calc(100% + 6px); left: 0; white-space: nowrap; font-size: 11px; background: var(--ahe-surface); color: var(--ahe-fg-muted); border: 1px solid var(--ahe-border); border-radius: 6px; padding: 2px 6px; }
+@keyframes mic-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, .5); } 50% { box-shadow: 0 0 0 8px rgba(220, 38, 38, 0); } }
+
+/* Transport */
+.transport {
+  display: flex; align-items: center; gap: 10px; padding: 8px 14px;
+  border-top: 1px solid var(--ahe-border); background: var(--ahe-surface);
+}
+.transport .field { display: inline-flex; align-items: center; gap: 6px; color: var(--ahe-fg-muted); white-space: nowrap; }
+.play { min-width: 48px; }
+.progress { flex: 1; height: 8px; background: var(--ahe-surface-2); border-radius: 4px; cursor: pointer; overflow: hidden; }
+.progress-bar { height: 100%; width: 0; background: var(--ahe-accent); transition: width .2s linear; }
+.time, .counter { font-variant-numeric: tabular-nums; color: var(--ahe-fg-muted); }
+
+/* Dialogs */
+dialog { border: 1px solid var(--ahe-border); border-radius: var(--ahe-radius); background: var(--ahe-surface); color: var(--ahe-fg); padding: 20px 24px; width: min(560px, 92vw); box-shadow: var(--ahe-shadow); }
+dialog::backdrop { background: rgba(0, 0, 0, .4); }
+dialog h2 { margin: 0 0 12px; font-size: 18px; }
+dialog form { display: flex; flex-direction: column; gap: 10px; }
+dialog label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--ahe-fg-muted); }
+dialog label small { color: var(--ahe-fg-muted); font-weight: 400; }
+dialog label.check { flex-direction: row; align-items: center; gap: 8px; color: var(--ahe-fg); }
+dialog .row { display: flex; gap: 12px; }
+dialog .row > label { flex: 1; }
+dialog textarea { width: 100%; font: inherit; font-size: 13px; }
+dialog .hint { font-size: 12px; color: var(--ahe-fg-muted); margin: 0; }
+dialog .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+
+/* Export */
+.estimate { margin: 6px 0; }
+.progress-block { margin: 10px 0; }
+.progress-block .progress { height: 8px; background: var(--ahe-surface-2); border-radius: 4px; overflow: hidden; margin-bottom: 6px; }
+.progress-block .progress-bar { height: 100%; background: var(--ahe-accent); width: 0; transition: width .3s; }
+#export-result a { color: var(--ahe-accent); font-weight: 600; }
+
+/* Usage */
+.usage-table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 8px 0; font-variant-numeric: tabular-nums; }
+.usage-table th, .usage-table td { text-align: right; padding: 3px 6px; border-bottom: 1px solid var(--ahe-border-subtle); }
+.usage-table th:first-child, .usage-table td:first-child { text-align: left; }
+#usage-details summary { cursor: pointer; color: var(--ahe-fg-muted); font-size: 13px; }
+
+/* The QR card's extras, for the narrator's share */
+.ahe-qr-open { margin-top: 10px; font: inherit; padding: 6px 12px; border-radius: 7px; border: 1px solid var(--ahe-border); background: var(--ahe-surface-2); color: var(--ahe-fg); cursor: pointer; }
+.ahe-qr-note { font-size: 12px; color: var(--ahe-fg-muted); max-width: 320px; margin: 8px auto 0; }
+.ahe-qr-note a { color: var(--ahe-accent); }

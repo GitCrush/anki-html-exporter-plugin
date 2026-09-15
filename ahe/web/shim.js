@@ -30,3 +30,6 @@ window.anki.imageOcclusion = window.anki.imageOcclusion || {
     setup: function () {},
     drawShape: function () {}
 };
+/* The name the note type had in Anki 23.10; the reviewer still aliases it,
+   and note types made back then -- copied and renamed since -- still call it. */
+window.anki.setupImageCloze = window.anki.setupImageCloze || window.anki.imageOcclusion.setup;

@@ -2,7 +2,9 @@
 
 Export your cards to an HTML page you can read, search and print in any browser
 — with **every card rendered by Anki's own engine**, so the export looks like
-the reviewer rather than an approximation of it.
+the reviewer rather than an approximation of it. The same dialog serves the
+page live from the running collection, reads the cards aloud (**Narrator**,
+with an OpenAI API key), and plays them as a rapid presentation (**Hypnagog**).
 
 ![The export in use](https://raw.githubusercontent.com/GitCrush/anki-html-exporter-plugin/refs/heads/main/Teaser.webp)
 
@@ -64,9 +66,9 @@ you scroll, pictures come out of your media folder — and the panel offers the
 *whole* collection: every deck, every tag, plus Anki's own search syntax. Change
 the scope whenever you like and the page follows.
 
-The deck you are reading is named in the bar, and that name opens a list of
-every deck in the collection — type to find one, pick it, and the page is in
-that deck.
+The decks and tags the dialog was pointed at arrive as ticks in the filter
+panel, so changing them there replaces the dialog's choice rather than adding
+to it.
 
 It is the same page as the export, so study mode, click-to-reveal, shuffling and
 printing all work — shuffling deals the whole scope, not just the cards you have
@@ -78,7 +80,49 @@ it writes to your collection.
 
 The page is built for a phone, not merely tolerable on one: the bar keeps its
 shape at any width, controls are large enough for a thumb, and each card
-reflows exactly as it would in Anki on the same screen.
+reflows exactly as it would in Anki on the same screen. A card you are done
+with is swiped away, left or right; the rest close up and the next ones follow.
+
+---
+
+### Narrator — the cards read aloud
+
+**Narrate**, the third button, opens the cards of the dialog as a narrated
+slide show in the browser. Each card is shown as the export shows it; a
+language model writes a short spoken telling of it, and text-to-speech reads
+it. This uses OpenAI's API and needs an **OpenAI API key**, entered on the
+page. Each narration is one model call and one speech call — roughly one to
+two cents per card with the default models — and nothing is spent without a
+key. The key is kept in the add-on's config only.
+
+- Pick cards by deck, tag, note type, card state or flag, or with any Anki
+  search; browser, learning, creation or random order.
+- The front is shown first, the back a few seconds into the narration or on
+  Enter; the cloze asked on the card is marked.
+- The length per card (10 seconds to 2 minutes) is a ceiling: a thin card
+  stays short. The narration is in the card's language, or in one you set;
+  thirteen voices; playback speed up to 2× with the pitch kept.
+- Image occlusion cards: the region under the mask is shown to the model,
+  which reads the hidden label, and the narration is about that structure.
+- Ask about the card by microphone or by typing; the answer is spoken in the
+  same voice.
+- A QR code opens the page on a phone in the same network, over HTTPS.
+- Export the scope as an audiobook (MP3, a chapter per card) or a video
+  (MP4); needs `ffmpeg`. The dialog says what it would cost first.
+- Today's spend is shown on the page; a daily budget can be set; scripts and
+  audio are cached, so a card narrated once costs nothing again.
+
+### Hypnagog — the cards as a rapid presentation
+
+**Hypnagog**, the fourth button, opens the cards as a full-screen
+presentation in the browser: each fact flashes for an instant, shows — a
+cloze target blanked and then revealed in its own colour, an answer fading in
+under its question — and fades out; after a round the deck reshuffles. It
+starts at once on the dialog's cards; an options sheet (the O key) picks due,
+new, all, leech or recently failed cards, how many, how long each shows, and
+the look, with or without CRT effects and ambient tones. Needs no key.
+
+![Hypnagog](https://raw.githubusercontent.com/GitCrush/anki-html-exporter-plugin/refs/heads/main/Hypnagog.gif)
 
 ---
 
@@ -178,8 +222,9 @@ a shared deck those addresses were chosen by whoever built the deck.
 ### Selecting cards
 
 Deck, any number of tags (AND), and optionally a free-form Anki search
-(`is:due`, `-tag:leech`, `added:30`, …). From the browser you can also export
-exactly the cards you have selected.
+(`is:due`, `-tag:leech`, `added:30`, …). Suspended and buried cards stay out
+unless you tick them in. From the browser you can also export exactly the
+cards you have selected.
 
 **Tools → Export to HTML…**, or the browser's context menu.
 
@@ -189,7 +234,8 @@ exactly the cards you have selected.
 
 Anki 2.1.50 or later. **AnkiConnect is no longer required.** Working directly
 with the collection is what gives this version access to the real rendering
-engine, and it is considerably faster.
+engine, and it is considerably faster. The narrator needs an OpenAI API key
+and, for its exports, `ffmpeg`; everything else needs nothing beyond Anki.
 
 ### Known limitations
 

@@ -1,0 +1,121 @@
+<main id="main" class="narrator-main">
+  <section class="stage" id="stage">
+    <div class="empty" id="empty">
+      <h1>Anki Narrator</h1>
+      <p>Put your OpenAI key under <strong>Settings…</strong>, pick decks or tags under <strong>Filter…</strong> or type an Anki search in the bar. Space plays and pauses, the arrow keys move between cards, Enter reveals the back.</p>
+    </div>
+    <div class="card" id="card" hidden>
+      <div class="side" id="side-q" hidden><iframe scrolling="no" title="Front"></iframe></div>
+      <div class="side" id="side-a" hidden><iframe scrolling="no" title="Back"></iframe></div>
+    </div>
+  </section>
+  <aside class="script" id="script">
+    <div class="script-head">
+      <span id="script-state">—</span>
+      <button id="regen" class="small" title="Write this narration again" hidden>↻ again</button>
+      <button id="script-toggle" class="small" title="Hide the text">hide</button>
+    </div>
+    <div class="script-text" id="script-text"></div>
+    <section class="chat" id="chat" hidden>
+      <div class="chat-log" id="chat-log"></div>
+      <p class="chat-error" id="chat-error" hidden></p>
+      <form class="chat-row" id="chat-form">
+        <button type="button" id="mic" class="mic" title="Tap and speak; after a pause it is sent. Tap again to send at once.">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 14a3 3 0 003-3V6a3 3 0 00-6 0v5a3 3 0 003 3z"/><path d="M19 11a1 1 0 10-2 0 5 5 0 01-10 0 1 1 0 10-2 0 7 7 0 006 6.92V21a1 1 0 102 0v-3.08A7 7 0 0019 11z"/></svg>
+          <span class="mic-hint" id="mic-hint" hidden></span>
+        </button>
+        <input type="text" id="chat-input" placeholder="Ask about this card…" autocomplete="off">
+        <button type="submit" class="small" id="chat-send">Send</button>
+      </form>
+    </section>
+  </aside>
+  <audio id="chat-audio" preload="auto"></audio>
+</main>
+
+<footer class="transport">
+  <button id="prev" class="icon" title="Previous card (←)">⏮</button>
+  <button id="play" class="icon play" title="Play / pause (space)">▶</button>
+  <button id="reveal" class="icon" title="Reveal the answer (Enter)" hidden>👁</button>
+  <button id="next" class="icon" title="Next card (→)">⏭</button>
+  <div class="progress" id="progress"><div class="progress-bar" id="progress-bar"></div></div>
+  <span class="time" id="time">0:00</span>
+  <span class="counter" id="counter">0 / 0</span>
+  <label class="field" title="Go on to the next card when the narration ends"><input type="checkbox" id="autoplay" checked> auto</label>
+</footer>
+
+<audio id="audio" preload="auto"></audio>
+
+<dialog id="settings">
+  <form method="dialog" id="settings-form">
+    <h2>Settings</h2>
+    <label>OpenAI API key <small id="key-hint"></small>
+      <input name="openai_api_key" type="password" placeholder="sk-… (leave empty to keep)" autocomplete="off">
+    </label>
+    <div class="row">
+      <label>Text model <input name="text_model"></label>
+      <label>Speech model <input name="tts_model"></label>
+      <label>Listening model <small>speech to text</small><input name="stt_model"></label>
+    </div>
+    <div class="row">
+      <label>Language <small>empty: the card's</small><input name="language" placeholder="e.g. German"></label>
+      <label>Pause after a card (s) <input name="gap" type="number" min="0" max="10" step="0.5"></label>
+    </div>
+    <div class="row">
+      <label>Reveal the answer
+        <select name="reveal"><option value="auto">by itself, a few seconds in</option><option value="wait">when I press Enter — as in Anki</option></select>
+      </label>
+      <label>Seconds before the reveal <input name="reveal_gap" type="number" min="0" max="10" step="0.5"></label>
+    </div>
+    <label>Style <small>told to the model, optional</small>
+      <input name="style" placeholder="e.g. like a lecturer summing up; address the listener as 'you'">
+    </label>
+    <label class="check"><input type="checkbox" name="include_hidden"> Also narrate suspended and buried cards</label>
+    <label class="check"><input type="checkbox" name="vision"> On image occlusion cards, read the hidden label off the picture <small>a vision call per card</small></label>
+    <div class="row">
+      <label>Daily budget ($) <small>0: no limit</small><input name="daily_budget" type="number" min="0" step="0.5"></label>
+      <label class="check"><input type="checkbox" name="share"> Reachable on the local network <small>for your phone; the key in the address stays required</small></label>
+    </div>
+    <label>Pronunciation <small>one per line: <code>term = how to say it</code>; only the voice sees it</small>
+      <textarea name="pronunciation" rows="3" placeholder="Aα = A-Alpha&#10;V. cava = Vena cava" spellcheck="false"></textarea>
+    </label>
+    <p class="hint">Scripts and audio are cached in the add-on's <code>user_files/cache</code>; a changed model, style, language or length writes new ones, a changed voice only new audio.</p>
+    <details id="usage-details">
+      <summary>Usage and cost</summary>
+      <table class="usage-table">
+        <thead><tr><th></th><th>Narrations</th><th>Tokens in</th><th>Tokens out</th><th>Speech</th><th>Cost</th></tr></thead>
+        <tbody id="usage-rows"></tbody>
+      </table>
+      <p class="hint" id="usage-note">Estimated from the prices in the add-on's config; cached narrations cost nothing.</p>
+      <button type="button" id="usage-reset" class="small">Reset the counts</button>
+    </details>
+    <div class="actions">
+      <button type="button" id="settings-cancel">Cancel</button>
+      <button type="submit" class="primary">Save</button>
+    </div>
+  </form>
+</dialog>
+
+
+<dialog id="export">
+  <form method="dialog" id="export-form">
+    <h2>Export</h2>
+    <p class="hint" id="export-scope"></p>
+    <div class="row">
+      <label class="check"><input type="radio" name="kind" value="audio" checked> Audiobook (MP3, a chapter per card)</label>
+      <label class="check"><input type="radio" name="kind" value="video"> Video (MP4, a still of each card)</label>
+    </div>
+    <p id="export-estimate" class="estimate">…</p>
+    <label class="check" id="export-missing-row"><input type="checkbox" name="narrate_missing" checked> Narrate the cards that have no narration yet <span id="export-cost"></span></label>
+    <label class="check" id="export-night-row"><input type="checkbox" name="night"> Cards in night mode</label>
+    <div class="progress-block" id="export-progress" hidden>
+      <div class="progress"><div class="progress-bar" id="export-bar"></div></div>
+      <p class="hint" id="export-phase"></p>
+    </div>
+    <p id="export-result" class="hint" hidden></p>
+    <div class="actions">
+      <button type="button" id="export-close">Close</button>
+      <button type="button" id="export-cancel" hidden>Stop</button>
+      <button type="submit" class="primary" id="export-start">Export</button>
+    </div>
+  </form>
+</dialog>

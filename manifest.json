@@ -2,9 +2,9 @@
   "name": "Anki HTML Exporter",
   "package": "html_export",
   "author": "Deep Intervention",
-  "version": "2.3.0",
-  "human_version": "2.3.0",
-  "description": "Export cards to a browsable HTML page rendered by Anki's own template engine, with mass toggles for the card sides, special fields and note fields.",
+  "version": "2.5.0",
+  "human_version": "2.5.0",
+  "description": "Export cards to a browsable HTML page rendered by Anki's own template engine, browse the collection live, and have it narrated: a slide show read aloud by a language model, with a tutor to talk to and audiobook and video exports.",
   "homepage": "https://github.com/GitCrush/anki-html-exporter-plugin",
   "min_point_version": 50,
   "mod": 0

@@ -29,6 +29,7 @@ import random
 import re
 import secrets
 import socket
+import ssl
 import threading
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
@@ -39,6 +40,8 @@ from typing import Any, Callable
 
 from . import assets
 from . import qr
+from .export import without_hidden
+from .narrator import tls
 from .media_export import MediaCollector
 from .renderer import SPECIAL_NAMES, CardRenderer
 from .writer import ExportOptions, ExportWriter
@@ -110,8 +113,12 @@ class LiveView:
     the card ids the current scope resolved to.
     """
 
-    def __init__(self, options: ExportOptions) -> None:
+    def __init__(self, options: ExportOptions, include_hidden: bool = False) -> None:
         self.options = options
+        # Suspended and buried cards stay out unless asked for, as in an
+        # export. It is applied here rather than written into the address,
+        # so it survives every change of scope the reader makes in the page.
+        self.include_hidden = include_hidden
         self.writer = ExportWriter(options)
         self._renderer: CardRenderer | None = None
         self._names: dict | None = None
@@ -136,9 +143,10 @@ class LiveView:
         query = query.strip()
         self.query = query
         if query:
+            search = query if self.include_hidden else without_hidden(query)
             # order=True is the sort the user set in Anki's own browser, which
             # is the order they expect to be reading in.
-            self.card_ids = list(col.find_cards(query, order=True))
+            self.card_ids = list(col.find_cards(search, order=True))
         else:
             self.card_ids = []
         return {"query": query, "total": len(self.card_ids)}
@@ -250,6 +258,7 @@ class LiveServer:
         host: str = "127.0.0.1",
         port: int = 0,
         token: str | None = None,
+        tls_dir: Path | None = None,
     ) -> None:
         self.view = view
         self.collection = collection
@@ -262,6 +271,15 @@ class LiveServer:
         self._httpd: ThreadingHTTPServer | None = None
         self._thread: threading.Thread | None = None
         self._requested_port = port
+        # The narrator and Hypnagog, when attached: further pages on this server
+        self.narrator: Any = None
+        self.hypnagog: Any = None
+        # A listener on the network speaking TLS, for a phone that needs a
+        # secure page (its microphone); only while asked for.
+        self._tls: ThreadingHTTPServer | None = None
+        self._tls_thread: threading.Thread | None = None
+        self._tls_dir = tls_dir or Path(__file__).resolve().parent.parent / "user_files" / "tls"
+        self.tls_share_error = ""
 
     # Lifecycle
     ##################################################################
@@ -276,12 +294,59 @@ class LiveServer:
         self._thread.start()
         return self.url()
 
+    def modules(self) -> list:
+        return [m for m in (self.narrator, self.hypnagog) if m is not None]
+
     def stop(self) -> None:
+        for module in self.modules():
+            module.stop()
+        self.tls_share(False)
         if self._httpd is not None:
             self._httpd.shutdown()
             self._httpd.server_close()
             self._httpd = None
         self.collection.shutdown()
+
+    # The network, over TLS
+    ##################################################################
+
+    def tls_share(self, on: bool) -> None:
+        """Answer on the network over TLS as well, or stop doing so.
+
+        A second server on a port of its own, with the add-on's certificate:
+        a browser opens the microphone only on a secure page, and a phone
+        reaching this machine by its address gets one only this way. The
+        listeners already running are left alone.
+        """
+        if on and self._tls is None:
+            try:
+                cert, key = tls.ensure_certificate(self._tls_dir, _lan_addresses())
+                context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+                context.load_cert_chain(cert, key)
+                httpd = ThreadingHTTPServer(("0.0.0.0", 0), _make_handler(self))
+                httpd.socket = context.wrap_socket(httpd.socket, server_side=True)
+                httpd.daemon_threads = True
+            except Exception as exc:
+                self.tls_share_error = f"could not open the network listener: {exc}"
+                return
+            self.tls_share_error = ""
+            self._tls = httpd
+            self._tls_thread = threading.Thread(target=httpd.serve_forever, name="ahe-live-https", daemon=True)
+            self._tls_thread.start()
+        elif not on and self._tls is not None:
+            shared, self._tls = self._tls, None
+            threading.Thread(target=lambda: (shared.shutdown(), shared.server_close()), daemon=True).start()
+
+    def tls_share_urls(self) -> list[str]:
+        """``https://address:port`` for every address a phone might use; none while off."""
+        if self._tls is None:
+            return []
+        port = self._tls.server_address[1]
+        return [f"https://{address}:{port}" for address in _lan_addresses()]
+
+    def certificate(self) -> Path | None:
+        cert = self._tls_dir / "cert.pem"
+        return cert if cert.is_file() else None
 
     @property
     def port(self) -> int:
@@ -368,6 +433,8 @@ def _make_handler(server: LiveServer):
                 return
 
             try:
+                if any(module.handle(self, "GET", path, params) for module in server.modules()):
+                    return
                 if path == "/":
                     self._page(params)
                 elif path.startswith(ASSET_PREFIX):
@@ -401,6 +468,30 @@ def _make_handler(server: LiveServer):
             except Exception as exc:  # pragma: no cover - last resort
                 self._text(HTTPStatus.INTERNAL_SERVER_ERROR, str(exc))
 
+        def do_POST(self) -> None:  # noqa: N802
+            """Only the narrator takes anything in; the export's page asks."""
+            parsed = urllib.parse.urlparse(self.path)
+            path = urllib.parse.unquote(parsed.path)
+            params = urllib.parse.parse_qs(parsed.query)
+            if not self._authorised(params):
+                self._text(HTTPStatus.FORBIDDEN, "wrong or missing key")
+                return
+            try:
+                if not any(module.handle(self, "POST", path, params) for module in server.modules()):
+                    self._text(HTTPStatus.NOT_FOUND, "no such path")
+            except CollectionClosed:
+                self._text(HTTPStatus.SERVICE_UNAVAILABLE, "Anki has no collection open at the moment")
+            except TimeoutError:
+                self._text(HTTPStatus.GATEWAY_TIMEOUT, "Anki is busy with something else — try again in a moment")
+            except BrokenPipeError:
+                pass
+            except Exception as exc:  # pragma: no cover - last resort
+                self._text(HTTPStatus.INTERNAL_SERVER_ERROR, str(exc))
+
+        def cookie_header(self) -> list[tuple[str, str]]:
+            """The key as a cookie, for the requests a page makes after it."""
+            return [("Set-Cookie", f"{COOKIE_NAME}={server.token}; Path=/; SameSite=Lax; HttpOnly")]
+
         def _authorised(self, params: dict) -> bool:
             given = (params.get("key") or [None])[0]
             if given is None:
@@ -420,13 +511,7 @@ def _make_handler(server: LiveServer):
             # The key travels on as a cookie, so that every later request --
             # including a picture inside a card's frame -- carries it without
             # the address having to be rewritten.
-            extra = [
-                (
-                    "Set-Cookie",
-                    f"{COOKIE_NAME}={server.token}; Path=/; SameSite=Lax; HttpOnly",
-                )
-            ]
-            self._send(HTTPStatus.OK, "text/html; charset=utf-8", body, extra)
+            self._send(HTTPStatus.OK, "text/html; charset=utf-8", body, self.cookie_header())
 
         def _asset(self, name: str) -> None:
             if name.startswith(VENDOR_PREFIX):
@@ -532,6 +617,7 @@ def _make_handler(server: LiveServer):
             mime: str,
             body: bytes,
             extra_headers: list[tuple[str, str]] | None = None,
+            cache: bool = False,
         ) -> None:
             encoding = None
             # A card page is a couple of hundred kilobytes of HTML and the deck
@@ -552,8 +638,8 @@ def _make_handler(server: LiveServer):
                 self.send_header("Content-Encoding", encoding)
             self.send_header("Content-Length", str(len(body)))
             # The collection changes under the reader's feet; nothing here may
-            # be kept.
-            self.send_header("Cache-Control", "no-store")
+            # be kept -- except what is immutable by name, a narration's audio.
+            self.send_header("Cache-Control", "private, max-age=86400" if cache else "no-store")
             for name, value in extra_headers or []:
                 self.send_header(name, value)
             self.end_headers()

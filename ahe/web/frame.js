@@ -708,14 +708,17 @@
 
     /* Wiring --------------------------------------------------------------- */
 
+    /* The masks are part of the card, drawn whether or not they can be
+       clicked: without them an image occlusion is a bare picture -- or, since
+       the container takes its height from the drawing, no picture at all. */
     function setupInteractive() {
+        setupOcclusion();
         if (!interactive) {
             return;
         }
         document.documentElement.classList.add("ahe-interactive");
         markClozes();
         setupMaskOverlay();
-        setupOcclusion();
         applyRestore();
     }
 
@@ -802,6 +805,103 @@
             console.error(err);
         }
     });
+
+    /* --- swiping --------------------------------------------------------- */
+
+    /* A finger on the card lands here, in a frame that has no idea what a
+     * card is, so the movement is reported to the shell and acted on there.
+     * What is decided here is only whether the movement is a swipe at all:
+     * a finger moving mostly up or down is scrolling the page and is left
+     * alone, and one moving sideways over content that can itself scroll
+     * sideways -- a table wider than the screen -- scrolls that content first.
+     * Only once a swipe is recognised is the page's own scrolling suppressed,
+     * so a tap stays a tap and a template's own handlers are untouched. */
+    var SWIPE_LOCK = 12;
+
+    function scrollsSideways(target, dx) {
+        var node = target;
+        while (node && node !== document.documentElement) {
+            if (node.nodeType === 1 && node.scrollWidth > node.clientWidth + 1) {
+                var overflow = getComputedStyle(node).overflowX;
+                if (overflow === "auto" || overflow === "scroll") {
+                    if (dx < 0 && node.scrollLeft + node.clientWidth < node.scrollWidth - 1) {
+                        return true;
+                    }
+                    if (dx > 0 && node.scrollLeft > 0) {
+                        return true;
+                    }
+                }
+            }
+            node = node.parentNode;
+        }
+        return false;
+    }
+
+    function tellSwipe(phase, dx) {
+        try {
+            parent.postMessage(
+                { source: "ahe-frame", id: frameId, type: "swipe", phase: phase, dx: dx },
+                "*"
+            );
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+    var touch = null;
+
+    document.addEventListener(
+        "touchstart",
+        function (event) {
+            if (event.touches.length !== 1) {
+                touch = null;
+                return;
+            }
+            var point = event.touches[0];
+            touch = { x: point.clientX, y: point.clientY, target: event.target, swiping: false, dead: false };
+        },
+        { passive: true }
+    );
+
+    document.addEventListener(
+        "touchmove",
+        function (event) {
+            if (!touch || touch.dead || event.touches.length !== 1) {
+                return;
+            }
+            var point = event.touches[0];
+            var dx = point.clientX - touch.x;
+            var dy = point.clientY - touch.y;
+            if (!touch.swiping) {
+                if (Math.abs(dy) >= SWIPE_LOCK && Math.abs(dy) >= Math.abs(dx)) {
+                    touch.dead = true; /* a scroll */
+                    return;
+                }
+                if (Math.abs(dx) < SWIPE_LOCK || Math.abs(dx) < Math.abs(dy) * 1.5) {
+                    return;
+                }
+                if (scrollsSideways(touch.target, dx)) {
+                    touch.dead = true;
+                    return;
+                }
+                touch.swiping = true;
+            }
+            event.preventDefault();
+            tellSwipe("move", dx);
+        },
+        { passive: false }
+    );
+
+    function endTouch(event) {
+        if (touch && touch.swiping) {
+            var point = event.changedTouches && event.changedTouches[0];
+            tellSwipe(event.type === "touchend" ? "end" : "cancel", point ? point.clientX - touch.x : 0);
+        }
+        touch = null;
+    }
+
+    document.addEventListener("touchend", endTouch, { passive: true });
+    document.addEventListener("touchcancel", endTouch, { passive: true });
 
     /* --- links ------------------------------------------------------------ */
 

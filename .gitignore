@@ -1,4 +1,6 @@
 __pycache__/
 *.pyc
 dist/
+user_files/
+meta.json
 tailwind/node_modules/

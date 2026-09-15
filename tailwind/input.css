@@ -22,6 +22,8 @@
    rows and the writer that emits its skeleton. */
 @source "../ahe/web/shell.js";
 @source "../ahe/writer.py";
+/* Hypnagog's options sheet, written in the same utilities */
+@source "../ahe/hypnagog/web/index.html";
 
 /* The export's palette, so a utility resolves to the same colour the rest of
    the page uses. These custom properties already flip in night mode -- the

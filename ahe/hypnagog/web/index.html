@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hypnagog</title>
+<link rel="stylesheet" href="/assets/tailwind.css">
+<link rel="stylesheet" href="/assets/shell.css">
+<style>
+  /* The stage is the engine's: black, full screen. The options sheet is the
+     export's surface and tokens, laid over it on request. */
+  html, body { width: 100%; height: 100%; margin: 0; background: #000; color: #fff; overflow: hidden; }
+  /* Above the engine's own layer (z-index 999999), and with a pointer: the
+     engine hides the cursor over its stage. */
+  #options-open, #options { z-index: 1000000; cursor: auto; }
+  .hy-sheet input, .hy-sheet select { font: inherit; }
+  .hy-sheet input[type="checkbox"] { width: auto; }
+</style>
+</head>
+<body>
+<button id="options-open" type="button" title="Options (O)"
+  class="fixed top-3 right-3 z-50 cursor-pointer appearance-none rounded-lg border border-solid border-white/20 bg-black/40 px-3 py-1.5 text-sm text-white/70 backdrop-blur hover:bg-black/60 hover:text-white [font:inherit]">Options</button>
+
+<aside id="options" hidden
+  class="hy-sheet fixed top-3 right-3 z-50 flex w-[min(380px,92vw)] max-h-[calc(100vh-24px)] flex-col overflow-y-auto rounded-xl border border-solid border-line bg-surface text-ink shadow-2xl">
+  <div class="flex items-center gap-2.5 border-b border-solid border-line px-4 py-3">
+    <strong>Hypnagog</strong>
+    <span id="options-count" class="text-xs text-muted"></span>
+    <button id="options-close" type="button" title="Close (Esc)"
+      class="ml-auto cursor-pointer appearance-none rounded-md border-0 bg-transparent px-2 text-xl leading-tight text-muted hover:bg-surface-2 hover:text-ink [font:inherit]">×</button>
+  </div>
+  <form id="options-form" class="flex flex-col gap-3 px-4 py-3">
+    <label class="flex flex-col gap-1 text-xs text-muted">Cards
+      <input type="text" id="query" placeholder="Anki search — empty: the whole collection" autocomplete="off" spellcheck="false"
+        class="rounded-lg border border-solid border-line bg-surface-2 px-2.5 py-1.5 text-sm text-ink">
+    </label>
+    <div class="flex gap-3">
+      <label class="flex flex-1 flex-col gap-1 text-xs text-muted">From
+        <select id="source" class="rounded-lg border border-solid border-line bg-surface-2 px-2 py-1.5 text-sm text-ink">
+          <option value="due">Due cards</option>
+          <option value="new">New cards</option>
+          <option value="all">All cards</option>
+          <option value="leeches">Leeches</option>
+          <option value="failed_24h">Failed, last 24 h</option>
+          <option value="failed_7d">Failed, last 7 days</option>
+        </select>
+      </label>
+      <label class="flex w-24 flex-col gap-1 text-xs text-muted">At most
+        <input type="number" id="max" min="1" max="500" class="rounded-lg border border-solid border-line bg-surface-2 px-2 py-1.5 text-sm text-ink">
+      </label>
+    </div>
+    <div class="flex gap-3">
+      <label class="flex flex-1 flex-col gap-1 text-xs text-muted">Show each (ms)
+        <input type="number" id="show_ms" min="500" max="10000" step="250" class="rounded-lg border border-solid border-line bg-surface-2 px-2 py-1.5 text-sm text-ink">
+      </label>
+      <label class="flex flex-1 flex-col gap-1 text-xs text-muted">Look
+        <select id="mode" class="rounded-lg border border-solid border-line bg-surface-2 px-2 py-1.5 text-sm text-ink">
+          <option value="2">Polybius — CRT, sound</option>
+          <option value="1">Clean — plain, silent</option>
+        </select>
+      </label>
+    </div>
+    <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="progressive"> Progressive speed — faster each round</label>
+    <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="fullscreen"> Full screen (F11)</label>
+    <p id="error" hidden class="m-0 text-sm text-red-500"></p>
+    <div class="flex items-center gap-2 border-t border-solid border-line pt-3">
+      <span class="text-xs leading-relaxed text-muted">Space pause · ← → cards · ↓ dismiss · ↑ prioritise · 1/2 look · 3 cloze · Esc stop</span>
+      <button type="submit" id="start"
+        class="ml-auto cursor-pointer appearance-none rounded-lg border-0 bg-accent px-4 py-1.5 text-sm font-semibold text-white hover:opacity-90 [font:inherit]">Apply</button>
+    </div>
+  </form>
+</aside>
+
+<script src="/assets/hypnagog/hypnagog.js"></script>
+<script src="/assets/hypnagog/app.js"></script>
+</body>
+</html>

@@ -318,153 +318,6 @@ body {
     color: var(--ahe-fg-muted);
 }
 
-/* Which deck is being read -- the live view only
-   ------------------------------------------------------------------------ */
-
-/* The box sits where the reader already looks for the answer to "where am I",
-   right beside the title, and it is the only control in the head line that
-   carries a name rather than a label. Filled like the search box rather than
-   tinted like a switch: it is not on or off, it is the place you are. */
-.ahe-deck[hidden] {
-    display: none;
-}
-
-.ahe-deck {
-    display: inline-flex;
-    flex: 0 1 auto;
-    min-width: 0;
-}
-
-.ahe-bar .ahe-deck-button {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    min-width: 0;
-    /* A deck may be called anything at all; the name gives way before the
-       controls beside it do. */
-    max-width: min(32vw, 320px);
-    color: var(--ahe-fg);
-    background: var(--ahe-surface-2);
-    border: 1px solid var(--ahe-border);
-    border-radius: 8px;
-    padding: 5px 8px 5px 10px;
-}
-
-.ahe-bar .ahe-deck-button:hover,
-.ahe-menu.open .ahe-deck-button {
-    background: var(--ahe-surface-2);
-    border-color: var(--ahe-accent);
-    color: var(--ahe-fg);
-}
-
-.ahe-deck-name {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-weight: 600;
-}
-
-.ahe-deck-caret {
-    flex: 0 0 auto;
-    font-size: 10px;
-    color: var(--ahe-fg-muted);
-}
-
-/* The find field stays put and the names scroll under it -- a field that
-   scrolls away is one you have to go back up to. So the panel itself does not
-   scroll, its list does. Three classes, like the rule it overrides, and after
-   it, or the panel would go back to being a block. */
-.ahe-menu.open .ahe-deck-panel {
-    display: flex;
-}
-
-.ahe-deck-panel {
-    flex-direction: column;
-    overflow: hidden;
-    min-width: 280px;
-    max-width: min(420px, 92vw);
-    padding: 6px;
-}
-
-.ahe-deck-find {
-    flex: 0 0 auto;
-    padding: 2px 2px 6px;
-    margin-bottom: 4px;
-    border-bottom: 1px solid var(--ahe-border);
-}
-
-.ahe-deck-find input {
-    width: 100%;
-    font: inherit;
-    color: var(--ahe-fg);
-    background: var(--ahe-surface-2);
-    border: 1px solid var(--ahe-border);
-    border-radius: 6px;
-    padding: 5px 8px;
-}
-
-.ahe-deck-list {
-    flex: 1 1 auto;
-    overflow-y: auto;
-    min-height: 0;
-}
-
-.ahe-bar .ahe-deck-row {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    width: 100%;
-    padding: 5px 8px;
-    border-radius: 6px;
-    color: var(--ahe-fg);
-    text-align: left;
-}
-
-.ahe-bar .ahe-deck-row:hover,
-.ahe-bar .ahe-deck-row.is-active {
-    background: var(--ahe-surface-2);
-    color: var(--ahe-fg);
-}
-
-/* Keyboard and mouse must not both look like the choice: the one the arrow
-   keys are on is outlined, the one that is chosen is tinted. */
-.ahe-bar .ahe-deck-row.is-active {
-    box-shadow: inset 0 0 0 1px var(--ahe-accent-soft);
-}
-
-.ahe-bar .ahe-deck-row[aria-selected="true"] {
-    background: var(--ahe-accent-wash);
-    color: var(--ahe-accent);
-    font-weight: 600;
-}
-
-/* Kept in the row even when it says nothing, so the names stay in one column
-   instead of stepping sideways as the choice moves. */
-.ahe-deck-tick {
-    flex: 0 0 auto;
-    width: 12px;
-    font-size: 11px;
-    visibility: hidden;
-}
-
-.ahe-deck-row[aria-selected="true"] .ahe-deck-tick {
-    visibility: visible;
-}
-
-.ahe-deck-row-name {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.ahe-deck-more {
-    padding: 6px 8px;
-    color: var(--ahe-fg-muted);
-    font-size: 12px;
-}
-
 .ahe-print-panel {
     min-width: 230px;
 }
@@ -515,6 +368,65 @@ main {
 
 .ahe-card[hidden] {
     display: none;
+}
+
+/* Swiped away: the card follows the finger without easing, springs back with
+   it, or slides out and then gives up its height so the cards below close the
+   gap. Transform and opacity are set from the script. */
+.ahe-card.ahe-swiping {
+    transition: none;
+    will-change: transform;
+}
+
+.ahe-card.ahe-settling {
+    transition: transform 180ms ease-out, opacity 180ms ease-out;
+}
+
+.ahe-card.ahe-gone {
+    pointer-events: none;
+    transition: transform 180ms ease-in, opacity 180ms ease-in,
+        height 180ms ease-in, margin-bottom 180ms ease-in;
+}
+
+/* The one way to take a swipe back, shown for a few seconds at the bottom. */
+.ahe-undo {
+    position: fixed;
+    left: 50%;
+    bottom: 20px;
+    z-index: 30;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    max-width: calc(100vw - 32px);
+    padding: 10px 12px 10px 16px;
+    border-radius: 999px;
+    background: var(--ahe-fg);
+    color: var(--ahe-bg);
+    font-size: 14px;
+    white-space: nowrap;
+    box-shadow: 0 4px 16px rgba(16, 24, 40, 0.25);
+}
+
+.ahe-undo[hidden] {
+    display: none;
+}
+
+.ahe-undo button {
+    border: 0;
+    border-radius: 999px;
+    padding: 6px 12px;
+    background: var(--ahe-accent);
+    color: #fff;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+@media print {
+    .ahe-undo {
+        display: none;
+    }
 }
 
 .ahe-meta {
